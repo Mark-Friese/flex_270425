@@ -1,0 +1,19 @@
+# config.yaml
+input:
+  # If demand CSVs live inside each substation folder, set to true:
+  in_substation_folder: false
+
+  # When above=false, we look in a common folder per substation:
+  demand_base_dir: "firm_capacity_analysis/data/samples/"    # e.g. ./data/demand/SubstationA.csv, etc.
+  metadata_file: "./data/metadata.csv" # optional extra metadata
+
+output:
+  base_dir: "./output"
+
+firm_capacity:
+  target_mwh: 5016.6525
+  tolerance: 0.10      # ±10%
+
+substations:
+  - name: monktonhall
+    demand_file: "demand.csv"       # relative if in_substation_folder=true
