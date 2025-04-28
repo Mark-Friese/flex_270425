@@ -21,8 +21,42 @@ def process_substation(cfg: dict, sub: dict):
     else:
         demand_path = Path(cfg["input"]["demand_base_dir"]) / f"{name}.csv"
 
-    # load
-    df = pd.read_csv(demand_path, parse_dates=["Timestamp"])
+    # load (read without parsing dates initially)
+    try:
+        df = pd.read_csv(demand_path)
+    except FileNotFoundError:
+        # This exception should ideally be caught in main, but handle here too for safety
+        print(f"Error: Demand file not found for {name}. Expected at: {demand_path}")
+        raise # Re-raise to be caught and logged in main()
+    except Exception as e:
+        print(f"Error reading CSV file {demand_path} for {name}: {e}")
+        raise # Re-raise
+
+    # Explicitly parse timestamps, coercing errors
+    if "Timestamp" not in df.columns:
+        print(f"Error: 'Timestamp' column not found in {demand_path} for {name}.")
+        # Decide how to handle: raise error, return, etc.
+        raise ValueError(f"'Timestamp' column missing in {demand_path}")
+
+    original_rows = len(df)
+    # Use explicit ISO8601 format parsing
+    df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors='coerce', format='iso8601')
+
+    # Check how many rows were affected by coercion
+    invalid_timestamps = df["Timestamp"].isna().sum()
+    if invalid_timestamps > 0:
+        print(f"Warning: Found {invalid_timestamps} invalid timestamps in {demand_path} for {name}. They will be treated as missing data (NaT).")
+        # Option: Remove rows with invalid dates
+        df.dropna(subset=['Timestamp'], inplace=True)
+        print(f"Removed {invalid_timestamps} rows with invalid timestamps for {name}. {len(df)} rows remaining.")
+
+    # Check if dataframe is empty after removing NaTs
+    if df.empty:
+        print(f"Error: No valid data rows remain for {name} after handling timestamps in {demand_path}.")
+        # Decide how to handle: return, raise error, etc.
+        # For now, let's raise an error to stop processing this substation
+        raise ValueError(f"No valid timestamp data for {name} in {demand_path}")
+
     df.sort_values("Timestamp", inplace=True)
     demand = df["Demand (MW)"].values
 
@@ -77,7 +111,8 @@ def main():
     # Correct path calculation relative to main.py
     config_path = Path(__file__).resolve().parent.parent / "config.yaml"
     cfg = load_config(config_path)
-    for sub in cfg["substations"]:
+    # Process only the first two substations for testing
+    for sub in cfg["substations"][:2]:
         # Calculate demand_path here to make it available in the except block
         name = sub["name"] # Need name for path calculation
         if cfg["input"]["in_substation_folder"]:

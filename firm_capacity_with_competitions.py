@@ -35,6 +35,13 @@ from competition_builder import (
 from competition_dates import update_dates_in_dataframe
 from competition_config import ConfigMode
 
+# Import parquet processing module
+from src.parquet_processor import (
+    process_network_groups_in_parquet, 
+    get_unique_network_groups,
+    save_summary_results
+)
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -51,7 +58,9 @@ def process_substation_with_competitions(
     sub: dict, 
     generate_competitions: bool = True,
     target_year: Optional[int] = None,
-    schema_path: Optional[str] = None
+    schema_path: Optional[str] = None,
+    parquet_path: Optional[str] = None,
+    parquet_df: Optional[pd.DataFrame] = None
 ):
     """
     Process a substation with firm capacity analysis and optionally generate competitions.
@@ -62,19 +71,41 @@ def process_substation_with_competitions(
         generate_competitions: Whether to generate competitions
         target_year: Optional year to use for dates in competition generation
         schema_path: Optional path to competition schema for validation
+        parquet_path: Optional path to parquet file (for logging)
+        parquet_df: Optional pre-filtered dataframe from parquet
     """
     name = sub["name"]
     out_base = Path(cfg["output"]["base_dir"]) / name
     ensure_dir(out_base)
 
-    # Locate demand CSV
-    if cfg["input"]["in_substation_folder"]:
-        demand_path = out_base / sub["demand_file"]
+    # Determine if we're using pre-filtered parquet data
+    if parquet_df is not None:
+        logger.info(f"Using pre-filtered parquet data for {name}")
+        df = parquet_df
     else:
-        demand_path = Path(cfg["input"]["demand_base_dir"]) / f"{name}.csv"
-
-    # Load demand data
-    df = pd.read_csv(demand_path, parse_dates=["Timestamp"])
+        # Check for data source in substation config
+        demand_source = sub.get("demand_source", "csv")
+        
+        if demand_source == "parquet" and parquet_path is None:
+            logger.error(f"Error: Demand source is 'parquet' but no parquet data provided for {name}")
+            raise ValueError(f"No parquet data provided for {name}")
+        
+        # Original CSV loading logic
+        if cfg["input"]["in_substation_folder"]:
+            demand_path = out_base / sub["demand_file"]
+        else:
+            try:
+                # Try to get demand file from substation config
+                demand_file = sub.get("demand_file", f"{name}.csv")
+                demand_path = Path(cfg["input"]["demand_base_dir"]) / demand_file
+            except KeyError:
+                demand_path = Path(cfg["input"]["demand_base_dir"]) / f"{name}.csv"
+        
+        # Load demand data
+        logger.info(f"Loading CSV demand data from {demand_path}")
+        df = pd.read_csv(demand_path, parse_dates=["Timestamp"])
+    
+    # Common processing for both CSV and parquet data
     df.sort_values("Timestamp", inplace=True)
     
     # Add substation name column if not present
@@ -196,6 +227,12 @@ def main():
     parser.add_argument('--schema', type=str, help='Path to competition schema for validation')
     parser.add_argument('--year', type=int, help='Target year for competition dates')
     
+    # Add parquet arguments
+    parser.add_argument('--parquet', type=str, help='Path to parquet file with substation demand data')
+    parser.add_argument('--filter', type=str, help='Filter network groups (comma-separated)')
+    parser.add_argument('--workers', type=int, default=4, help='Number of parallel workers for parquet processing')
+    parser.add_argument('--skip-existing', action='store_true', help='Skip network groups with existing results')
+    
     args = parser.parse_args()
     
     # Load configuration
@@ -214,35 +251,63 @@ def main():
             "financial_year": None
         }
     
-    # Process each substation
-    results = []
-    for sub in cfg["substations"]:
-        try:
-            result = process_substation_with_competitions(
-                cfg, 
-                sub, 
-                generate_competitions=args.competitions,
-                target_year=args.year,
-                schema_path=args.schema
-            )
-            results.append(result)
-            logger.info(f"Successfully processed {sub['name']}")
-        except FileNotFoundError:
-            if cfg["input"]["in_substation_folder"]:
-                demand_path = Path(cfg["output"]["base_dir"]) / sub["name"] / sub["demand_file"]
-            else:
-                demand_path = Path(cfg["input"]["demand_base_dir"]) / f"{sub['name']}.csv"
-            logger.error(f"Error: Demand file not found for {sub['name']}. Expected at: {demand_path}")
-            logger.error(f"Please check config.yaml and ensure data files exist.")
-        except Exception as e:
-            logger.error(f"Error processing {sub['name']}: {e}", exc_info=True)
-    
-    # Combine results into summary
-    if results:
-        summary_df = pd.DataFrame(results)
-        summary_path = Path(cfg["output"]["base_dir"]) / "summary.csv"
-        summary_df.to_csv(summary_path, index=False)
-        logger.info(f"Summary saved to {summary_path}")
+    # Check if we're using parquet file
+    if args.parquet:
+        logger.info(f"Using parquet file: {args.parquet}")
+        
+        # Parse filter if provided
+        filter_groups = None
+        if args.filter:
+            filter_groups = [g.strip() for g in args.filter.split(',')]
+        
+        # Process network groups from parquet file
+        results = process_network_groups_in_parquet(
+            args.parquet,
+            cfg,
+            process_substation_with_competitions,
+            network_groups=filter_groups,
+            max_workers=args.workers,
+            skip_existing=args.skip_existing,
+            generate_competitions=args.competitions,
+            target_year=args.year,
+            schema_path=args.schema
+        )
+        
+        # Save summary results
+        summary_path = Path(cfg["output"]["base_dir"]) / "parquet_summary.csv"
+        summary_df = save_summary_results(results, summary_path)
+        logger.info(f"Parquet processing summary saved to {summary_path}")
+        
+    else:
+        # Process each substation as before
+        results = []
+        for sub in cfg["substations"]:
+            try:
+                result = process_substation_with_competitions(
+                    cfg, 
+                    sub, 
+                    generate_competitions=args.competitions,
+                    target_year=args.year,
+                    schema_path=args.schema
+                )
+                results.append(result)
+                logger.info(f"Successfully processed {sub['name']}")
+            except FileNotFoundError:
+                if cfg["input"]["in_substation_folder"]:
+                    demand_path = Path(cfg["output"]["base_dir"]) / sub["name"] / sub["demand_file"]
+                else:
+                    demand_path = Path(cfg["input"]["demand_base_dir"]) / f"{sub['demand_file']}"
+                logger.error(f"Error: Demand file not found for {sub['name']}. Expected at: {demand_path}")
+                logger.error(f"Please check config.yaml and ensure data files exist.")
+            except Exception as e:
+                logger.error(f"Error processing {sub['name']}: {e}", exc_info=True)
+        
+        # Combine results into summary
+        if results:
+            summary_df = pd.DataFrame(results)
+            summary_path = Path(cfg["output"]["base_dir"]) / "summary.csv"
+            summary_df.to_csv(summary_path, index=False)
+            logger.info(f"Summary saved to {summary_path}")
 
 if __name__ == "__main__":
     main()
