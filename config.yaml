@@ -4,7 +4,7 @@ input:
   in_substation_folder: false
 
   # When above=false, we look in a common folder per substation:
-  demand_base_dir: "firm_capacity_analysis/data/samples/"    # e.g. ./data/demand/SubstationA.csv, etc.
+  demand_base_dir: "./data/samples/"    # e.g. ./data/demand/SubstationA.csv, etc.
   metadata_file: "./data/metadata.csv" # optional extra metadata
 
 output:

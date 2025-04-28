@@ -1,0 +1,23 @@
+# Configuration for firm capacity analysis with competition generation
+output:
+  base_dir: "output"
+
+input:
+  demand_base_dir: "data/samples"
+  in_substation_folder: false
+
+firm_capacity:
+  target_mwh: 300.0  # Target energy threshold in MWh
+  tolerance: 0.01   # Tolerance for bisection search
+
+# Competition generation settings
+competitions:
+  procurement_window_size_minutes: 30  # Size of procurement windows in minutes
+  disaggregate_days: true  # Whether to disaggregate days into separate service windows
+  daily_service_periods: true  # Whether to create a service period per day instead of per month
+  financial_year: "2025/26"  # Financial year for competition dates (optional)
+
+# Substations to process
+substations:
+  - name: "monktonhall"
+    demand_file: "substation_1"
