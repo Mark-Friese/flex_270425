@@ -18,7 +18,7 @@ from datetime import datetime
 from typing import List, Dict, Optional, Union, Tuple
 
 # Import original firm capacity modules
-from src.utils import load_config, ensure_dir
+from src.utils import load_config, ensure_dir, load_site_specific_targets
 from src.calculations import (
     energy_above_capacity,
     energy_peak_based,
@@ -60,7 +60,8 @@ def process_substation_with_competitions(
     target_year: Optional[int] = None,
     schema_path: Optional[str] = None,
     parquet_path: Optional[str] = None,
-    parquet_df: Optional[pd.DataFrame] = None
+    parquet_df: Optional[pd.DataFrame] = None,
+    site_targets: Optional[Dict[str, float]] = None
 ):
     """
     Process a substation with firm capacity analysis and optionally generate competitions.
@@ -73,6 +74,7 @@ def process_substation_with_competitions(
         schema_path: Optional path to competition schema for validation
         parquet_path: Optional path to parquet file (for logging)
         parquet_df: Optional pre-filtered dataframe from parquet
+        site_targets: Optional dictionary of site-specific MWh targets
     """
     name = sub["name"]
     out_base = Path(cfg["output"]["base_dir"]) / name
@@ -126,7 +128,15 @@ def process_substation_with_competitions(
     
     # Original firm capacity calculations
     demand = df["Demand (MW)"].values
-    T = cfg["firm_capacity"]["target_mwh"]
+    
+    # Use site-specific target if available, otherwise use default from config
+    if site_targets and name in site_targets:
+        T = site_targets[name]
+        logger.info(f"Using site-specific target for {name}: {T} MWh")
+    else:
+        T = cfg["firm_capacity"]["target_mwh"]
+        logger.info(f"Using default target from config for {name}: {T} MWh")
+    
     tol_frac = cfg["firm_capacity"]["tolerance"]
     
     try:
@@ -164,7 +174,8 @@ def process_substation_with_competitions(
         "mean_demand_MW": float(demand.mean()),
         "max_demand_MW": float(demand.max()),
         "total_energy_MWh": float((demand * delta_t).sum()),
-        "energy_above_capacity_MWh": float(energy_peak)
+        "energy_above_capacity_MWh": float(energy_peak),
+        "target_mwh": T  # Add the target to the stats output
     }
     
     # Write results
@@ -227,6 +238,9 @@ def main():
     parser.add_argument('--schema', type=str, help='Path to competition schema for validation')
     parser.add_argument('--year', type=int, help='Target year for competition dates')
     
+    # Add targets file argument
+    parser.add_argument('--targets', type=str, help='Path to CSV file with site-specific MWh targets')
+    
     # Add parquet arguments
     parser.add_argument('--parquet', type=str, help='Path to parquet file with substation demand data')
     parser.add_argument('--filter', type=str, help='Filter network groups (comma-separated)')
@@ -251,6 +265,20 @@ def main():
             "financial_year": None
         }
     
+    # Load site-specific targets if provided
+    site_targets = None
+    if args.targets:
+        targets_path = Path(args.targets)
+        if not targets_path.is_absolute():
+            targets_path = Path(__file__).resolve().parent / args.targets
+        
+        try:
+            site_targets = load_site_specific_targets(targets_path)
+            logger.info(f"Loaded {len(site_targets)} site-specific targets from {targets_path}")
+        except Exception as e:
+            logger.error(f"Error loading targets file: {e}")
+            logger.warning("Will use default target from config instead")
+    
     # Check if we're using parquet file
     if args.parquet:
         logger.info(f"Using parquet file: {args.parquet}")
@@ -270,7 +298,8 @@ def main():
             skip_existing=args.skip_existing,
             generate_competitions=args.competitions,
             target_year=args.year,
-            schema_path=args.schema
+            schema_path=args.schema,
+            site_targets=site_targets  # Pass site-specific targets
         )
         
         # Save summary results
@@ -288,7 +317,8 @@ def main():
                     sub, 
                     generate_competitions=args.competitions,
                     target_year=args.year,
-                    schema_path=args.schema
+                    schema_path=args.schema,
+                    site_targets=site_targets  # Pass site-specific targets
                 )
                 results.append(result)
                 logger.info(f"Successfully processed {sub['name']}")
