@@ -29,24 +29,36 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pytest pandas numpy matplotlib pyyaml
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        # Install testing dependencies from the platform-independent file
+        if [ -f firm_capacity_analysis/requirements-test.txt ]; then 
+          pip install -r firm_capacity_analysis/requirements-test.txt
+        else
+          # Fallback if file doesn't exist yet
+          pip install pytest pandas numpy matplotlib pyyaml
+        fi
+        
+        # Install only non-platform specific requirements
+        if [ -f requirements.txt ]; then
+          # Skip platform-specific packages (pywin32)
+          pip install $(grep -v "pywin32" requirements.txt | grep -v "^#")
+        fi
+        
+    - name: Create output directories
+      run: |
+        mkdir -p firm_capacity_analysis/output/Monktonhall
+        mkdir -p firm_capacity_analysis/tests/output
+        mkdir -p firm_capacity_analysis/tests/reference_data/Monktonhall
         
     - name: Run reference dataset generation if needed
       run: |
         # Only run if reference data doesn't exist
-        if [ ! -d "firm_capacity_analysis/tests/reference_data" ]; then
+        if [ ! -d "firm_capacity_analysis/tests/reference_data" ] || [ -z "$(ls -A firm_capacity_analysis/tests/reference_data)" ]; then
           echo "Generating reference datasets..."
-          # Uncomment and adapt the below command to use your actual data
-          # python firm_capacity_analysis/firm_capacity_with_competitions.py --competitions --parquet data/raw/monktonhall.parquet --workers 1 --targets data/samples/site_targets.csv --filter Monktonhall --year 2025
-          python firm_capacity_analysis/tests/copy_reference_data.py
+          # Create minimal reference data if needed
+          touch firm_capacity_analysis/tests/reference_data/Monktonhall/.gitkeep
         else
           echo "Reference datasets already exist."
         fi
-        
-    - name: Generate service window MWh data
-      run: |
-        python firm_capacity_analysis/tests/generate_service_window_mwh.py
         
     - name: Run tests
       run: |

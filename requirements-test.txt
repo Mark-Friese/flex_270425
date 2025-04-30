@@ -1,0 +1,6 @@
+pytest>=8.0.0
+pandas>=2.0.0
+numpy>=2.0.0
+matplotlib>=3.10.0
+pyyaml>=6.0.0
+# Add any other testing dependencies here, but exclude platform-specific ones
