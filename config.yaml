@@ -15,5 +15,5 @@ firm_capacity:
   tolerance: 0.10      # ±10%
 
 substations:
-  - name: monktonhall
-    demand_file: "demand.csv"       # relative if in_substation_folder=true
+  - name: Monktonhall
+    demand_file: "Monktonhall.csv"       # relative if in_substation_folder=true

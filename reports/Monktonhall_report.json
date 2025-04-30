@@ -1,0 +1,80 @@
+{
+  "substation": "Monktonhall",
+  "timestamp": "2025-04-30 17:24:02",
+  "firm_capacity_metrics": {
+    "C_plain_MW": {
+      "reference": 11.59825,
+      "new": 11.59825,
+      "change": 0.0,
+      "pct_change": 0.0
+    },
+    "C_peak_MW": {
+      "reference": 11.59825,
+      "new": 11.59825,
+      "change": 0.0,
+      "pct_change": 0.0
+    },
+    "mean_demand_MW": {
+      "reference": 8.18502373597789,
+      "new": 8.18502373597789,
+      "change": 0.0,
+      "pct_change": 0.0
+    },
+    "max_demand_MW": {
+      "reference": 21.832,
+      "new": 21.832,
+      "change": 0.0,
+      "pct_change": 0.0
+    },
+    "total_energy_MWh": {
+      "reference": 75519.1215,
+      "new": 75519.1215,
+      "change": 0.0,
+      "pct_change": 0.0
+    }
+  },
+  "competition_metrics": {
+    "num_competitions": {
+      "reference": 8,
+      "new": 8,
+      "change": 0,
+      "pct_change": 0.0
+    },
+    "num_periods": {
+      "reference": 8,
+      "new": 8,
+      "change": 0,
+      "pct_change": 0.0
+    },
+    "num_windows": {
+      "reference": 165,
+      "new": 165,
+      "change": 0,
+      "pct_change": 0.0
+    },
+    "total_capacity_mw": {
+      "reference": 185.0889999999999,
+      "new": 185.0889999999999,
+      "change": 0.0,
+      "pct_change": 0.0
+    },
+    "avg_capacity_per_window": {
+      "reference": 1.1217515151515147,
+      "new": 1.1217515151515147,
+      "change": 0.0,
+      "pct_change": 0.0
+    },
+    "total_mwh": {
+      "reference": null,
+      "new": null,
+      "change": null,
+      "pct_change": null
+    },
+    "windows_with_mwh": {
+      "reference": 0,
+      "new": 0,
+      "change": 0,
+      "pct_change": null
+    }
+  }
+}

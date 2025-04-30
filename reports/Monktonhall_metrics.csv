@@ -1,0 +1,13 @@
+Substation,Category,Metric,Reference,New,Absolute Change,Percent Change
+Monktonhall,Firm Capacity,C_plain_MW,11.59825,11.59825,0.0,0.0
+Monktonhall,Firm Capacity,C_peak_MW,11.59825,11.59825,0.0,0.0
+Monktonhall,Firm Capacity,mean_demand_MW,8.18502373597789,8.18502373597789,0.0,0.0
+Monktonhall,Firm Capacity,max_demand_MW,21.832,21.832,0.0,0.0
+Monktonhall,Firm Capacity,total_energy_MWh,75519.1215,75519.1215,0.0,0.0
+Monktonhall,Competition,num_competitions,8.0,8.0,0.0,0.0
+Monktonhall,Competition,num_periods,8.0,8.0,0.0,0.0
+Monktonhall,Competition,num_windows,165.0,165.0,0.0,0.0
+Monktonhall,Competition,total_capacity_mw,185.0889999999999,185.0889999999999,0.0,0.0
+Monktonhall,Competition,avg_capacity_per_window,1.1217515151515147,1.1217515151515147,0.0,0.0
+Monktonhall,Competition,total_mwh,,,,
+Monktonhall,Competition,windows_with_mwh,0.0,0.0,0.0,
