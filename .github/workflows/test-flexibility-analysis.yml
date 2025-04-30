@@ -54,7 +54,8 @@ jobs:
         # Only run if reference data doesn't exist
         if [ ! -d "firm_capacity_analysis/tests/reference_data" ] || [ -z "$(ls -A firm_capacity_analysis/tests/reference_data)" ] || [ ! -f "firm_capacity_analysis/tests/reference_data/Monktonhall/competitions.json" ]; then
           echo "Generating reference datasets..."
-          # Create reference data directories
+          
+          # Create directories
           mkdir -p firm_capacity_analysis/tests/reference_data/Monktonhall
           mkdir -p firm_capacity_analysis/output/Monktonhall
           
@@ -63,73 +64,27 @@ jobs:
           echo '"""Reference data package for tests."""' > firm_capacity_analysis/tests/reference_data/__init__.py
           echo '"""Reference data for Monktonhall substation."""' > firm_capacity_analysis/tests/reference_data/Monktonhall/__init__.py
           
-          # Create minimal reference competition.json
-          cat > firm_capacity_analysis/tests/reference_data/Monktonhall/competitions.json << 'EOL'
-          [{
-            "reference": "T2504_SPEN_Monktonhall",
-            "name": "MONKTONHALL April 2025",
-            "open": "2025-03-10T08:30:00Z",
-            "closed": "2025-03-10T17:00:00Z",
-            "area_buffer": "0.100",
-            "qualification_open": "2025-02-24T12:00:00Z",
-            "qualification_closed": "2025-03-10T08:00:00Z",
-            "boundary": {
-              "area_references": ["MONKTONHALL"],
-              "postcodes": []
-            },
-            "need_type": "Pre Fault",
-            "type": "Utilisation",
-            "need_direction": "Deficit",
-            "power_type": "Active Power",
-            "service_periods": [{
-              "name": "April",
-              "start": "2025-04-01",
-              "end": "2025-04-30",
-              "service_windows": [{
-                "name": "Monday 17:00-19:00",
-                "start": "17:00",
-                "end": "19:00",
-                "service_days": ["Monday"],
-                "minimum_aggregate_asset_size": "0.100",
-                "capacity_required": "1.500"
-              }]
-            }]
-          }]
-          EOL
+          # Create competitions.json
+          echo '[{"reference":"T2504_SPEN_Monktonhall","name":"MONKTONHALL April 2025","open":"2025-03-10T08:30:00Z","closed":"2025-03-10T17:00:00Z","area_buffer":"0.100","qualification_open":"2025-02-24T12:00:00Z","qualification_closed":"2025-03-10T08:00:00Z","boundary":{"area_references":["MONKTONHALL"],"postcodes":[]},"need_type":"Pre Fault","type":"Utilisation","need_direction":"Deficit","power_type":"Active Power","service_periods":[{"name":"April","start":"2025-04-01","end":"2025-04-30","service_windows":[{"name":"Monday 17:00-19:00","start":"17:00","end":"19:00","service_days":["Monday"],"minimum_aggregate_asset_size":"0.100","capacity_required":"1.500"}]}]}]' > firm_capacity_analysis/tests/reference_data/Monktonhall/competitions.json
           
-          # Create minimal reference metadata.json
-          cat > firm_capacity_analysis/tests/reference_data/Monktonhall/metadata.json << 'EOL'
-          {
-            "substation": "Monktonhall",
-            "C_plain_MW": 11.59825,
-            "C_peak_MW": 11.59825,
-            "mean_demand_MW": 8.18502373597789,
-            "max_demand_MW": 21.832,
-            "total_energy_MWh": 75519.1215,
-            "energy_above_capacity_MWh": 1143.6992499999992,
-            "target_mwh": 650.7879
-          }
-          EOL
+          # Create metadata.json
+          echo '{"substation":"Monktonhall","C_plain_MW":11.59825,"C_peak_MW":11.59825,"mean_demand_MW":8.18502373597789,"max_demand_MW":21.832,"total_energy_MWh":75519.1215,"energy_above_capacity_MWh":1143.6992499999992,"target_mwh":650.7879}' > firm_capacity_analysis/tests/reference_data/Monktonhall/metadata.json
           
-          # Create minimal firm_capacity_results.csv
-          cat > firm_capacity_analysis/tests/reference_data/Monktonhall/firm_capacity_results.csv << 'EOL'
-          substation,C_plain_MW,C_peak_MW,mean_demand_MW,max_demand_MW,total_energy_MWh,energy_above_capacity_MWh,target_mwh
-          Monktonhall,11.59825,11.59825,8.18502373597789,21.832,75519.1215,1143.6992499999992,650.7879
-          EOL
+          # Create firm_capacity_results.csv
+          echo 'substation,C_plain_MW,C_peak_MW,mean_demand_MW,max_demand_MW,total_energy_MWh,energy_above_capacity_MWh,target_mwh' > firm_capacity_analysis/tests/reference_data/Monktonhall/firm_capacity_results.csv
+          echo 'Monktonhall,11.59825,11.59825,8.18502373597789,21.832,75519.1215,1143.6992499999992,650.7879' >> firm_capacity_analysis/tests/reference_data/Monktonhall/firm_capacity_results.csv
           
-          # Copy the same files to output for testing
+          # Copy to output directory
           cp firm_capacity_analysis/tests/reference_data/Monktonhall/competitions.json firm_capacity_analysis/output/Monktonhall/
           cp firm_capacity_analysis/tests/reference_data/Monktonhall/metadata.json firm_capacity_analysis/output/Monktonhall/
           cp firm_capacity_analysis/tests/reference_data/Monktonhall/firm_capacity_results.csv firm_capacity_analysis/output/Monktonhall/
           
           # Create pytest.ini for test discovery
-          cat > firm_capacity_analysis/pytest.ini << 'EOL'
-          [pytest]
-          python_files = test_*.py
-          testpaths = tests
-          python_classes = *Test
-          python_functions = test_*
-          EOL
+          echo '[pytest]' > firm_capacity_analysis/pytest.ini
+          echo 'python_files = test_*.py' >> firm_capacity_analysis/pytest.ini
+          echo 'testpaths = tests' >> firm_capacity_analysis/pytest.ini
+          echo 'python_classes = *Test' >> firm_capacity_analysis/pytest.ini
+          echo 'python_functions = test_*' >> firm_capacity_analysis/pytest.ini
           
           echo "Reference dataset creation complete!"
         else
@@ -140,13 +95,20 @@ jobs:
       run: |
         cd firm_capacity_analysis
         # Debug information
-        pwd
+        echo "===== Directory Structure ====="
         ls -la
+        echo "===== Tests Directory Structure ====="
         ls -la tests/
+        echo "===== Reference Data Structure ====="
+        ls -la tests/reference_data/
+        ls -la tests/reference_data/Monktonhall/
+        echo "===== Python Path ====="
         python -c "import sys; print(sys.path)"
-        # Run tests with additional debug information
+        echo "===== Test Collection ====="
         python -m pytest -v --collect-only tests/
+        echo "===== Running Tests ====="
         python -m pytest -v tests/
+        
         
     - name: Upload test artifacts
       uses: actions/upload-artifact@v4
