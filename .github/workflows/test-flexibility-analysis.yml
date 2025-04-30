@@ -52,10 +52,11 @@ jobs:
     - name: Run reference dataset generation if needed
       run: |
         # Only run if reference data doesn't exist
-        if [ ! -d "firm_capacity_analysis/tests/reference_data" ] || [ -z "$(ls -A firm_capacity_analysis/tests/reference_data)" ]; then
+        if [ ! -d "firm_capacity_analysis/tests/reference_data" ] || [ -z "$(ls -A firm_capacity_analysis/tests/reference_data)" ] || [ ! -f "firm_capacity_analysis/tests/reference_data/Monktonhall/competitions.json" ]; then
           echo "Generating reference datasets..."
-          # Create minimal reference data if needed
-          touch firm_capacity_analysis/tests/reference_data/Monktonhall/.gitkeep
+          # Create minimal reference data with our script
+          cd firm_capacity_analysis
+          python tests/make_reference_data.py
         else
           echo "Reference datasets already exist."
         fi
@@ -63,6 +64,13 @@ jobs:
     - name: Run tests
       run: |
         cd firm_capacity_analysis
+        # Debug information
+        pwd
+        ls -la
+        ls -la tests/
+        python -c "import sys; print(sys.path)"
+        # Run tests with additional debug information
+        python -m pytest -v --collect-only tests/
         python -m pytest -v tests/
         
     - name: Upload test artifacts
