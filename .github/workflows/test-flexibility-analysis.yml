@@ -1,0 +1,63 @@
+name: Test Flexibility Analysis
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - "firm_capacity_analysis/**"
+      - ".github/workflows/test-flexibility-analysis.yml"
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - "firm_capacity_analysis/**"
+      - ".github/workflows/test-flexibility-analysis.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0  # Fetch all history for proper versioning
+    
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.10'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pandas numpy matplotlib pyyaml
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        
+    - name: Run reference dataset generation if needed
+      run: |
+        # Only run if reference data doesn't exist
+        if [ ! -d "firm_capacity_analysis/tests/reference_data" ]; then
+          echo "Generating reference datasets..."
+          # Uncomment and adapt the below command to use your actual data
+          # python firm_capacity_analysis/firm_capacity_with_competitions.py --competitions --parquet data/raw/monktonhall.parquet --workers 1 --targets data/samples/site_targets.csv --filter Monktonhall --year 2025
+          python firm_capacity_analysis/tests/copy_reference_data.py
+        else
+          echo "Reference datasets already exist."
+        fi
+        
+    - name: Generate service window MWh data
+      run: |
+        python firm_capacity_analysis/tests/generate_service_window_mwh.py
+        
+    - name: Run tests
+      run: |
+        cd firm_capacity_analysis
+        python -m pytest -v tests/
+        
+    - name: Upload test artifacts
+      uses: actions/upload-artifact@v2
+      if: success() || failure()  # Upload artifacts even if tests fail
+      with:
+        name: test-artifacts
+        path: |
+          firm_capacity_analysis/tests/output/
+          firm_capacity_analysis/output/*/service_window_mwh.csv
