@@ -1,0 +1,101 @@
+site_name: Flexibility Analysis System
+site_description: Documentation for the Flexibility Analysis System for power networks
+site_author: Energy Flexibility Team
+copyright: '&copy; 2025 Energy Flexibility Team'
+
+# Repository
+repo_name: 'flex_270425'
+repo_url: 'https://github.com/yourusername/flex_270425'
+edit_uri: 'edit/main/docs/'
+
+# Configuration
+docs_dir: 'docs'
+site_dir: 'site'
+
+# Navigation
+nav:
+  - Home: index.md
+  - Installation:
+    - Overview: installation/index.md
+    - Dependencies: installation/dependencies.md
+    - Desktop Application: installation/desktop-app.md
+  - User Guide:
+    - Getting Started: usage/index.md
+    - Configuration: usage/configuration.md
+    - Command Line Interface: usage/command-line.md
+    - Desktop Application: usage/desktop-app.md
+    - Parquet Processing: usage/parquet-processing.md
+  - Technical Documentation:
+    - Overview: technical/index.md
+    - Mathematical Models: technical/mathematical-models.md
+    - Firm Capacity Analysis: technical/firm-capacity.md
+    - Service Window Generation: technical/service-windows.md
+    - Competition Generation: technical/competitions.md
+    - Dynamic vs Static Parameters: technical/parameters.md
+  - Developer Guide:
+    - Overview: development/index.md
+    - Code Structure: development/code-structure.md
+    - Testing Framework: development/testing.md
+    - CI/CD Integration: development/ci-cd.md
+    - Contributing: development/contribution.md
+  - Reference:
+    - API Reference: reference/api-reference.md
+    - Configuration Reference: reference/configuration-reference.md
+    - Glossary: reference/glossary.md
+
+# Extensions
+markdown_extensions:
+  - admonition
+  - codehilite:
+      guess_lang: false
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.critic
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.inlinehilite
+  - pymdownx.magiclink
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tabbed
+  - pymdownx.tilde
+
+# Theme
+theme:
+  name: material
+  palette:
+    primary: blue
+    accent: indigo
+  icon:
+    logo: material/bolt
+  features:
+    - navigation.tabs
+    - navigation.expand
+    - navigation.indexes
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+
+# Extra CSS
+extra_css:
+  - stylesheets/extra.css
+
+# JavaScript for rendering
+extra_javascript:
+  - javascripts/config.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+# Social links
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/yourusername/flex_270425

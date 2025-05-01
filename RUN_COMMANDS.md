@@ -1,41 +1,150 @@
-# Cheatsheet: Running Firm Capacity Analysis
+# Running the Flexibility Analysis System
 
-This script calculates firm capacity metrics for electrical substations based on demand data.
+This document provides a comprehensive reference for running the Flexibility Analysis System through various interfaces and with different options.
 
-## Configuration
+## Basic Usage
 
-All configuration is managed in the `firm_capacity_analysis/config.yaml` file. Before running the script, ensure this file contains the correct settings for:
+### Firm Capacity Analysis Only
 
--   Input data locations (`input.demand_base_dir` or `input.in_substation_folder`)
--   Output directory (`output.base_dir`)
--   Firm capacity parameters (`firm_capacity.target_mwh`, `firm_capacity.tolerance`)
--   Substation details (list under `substations`, including `name` and potentially `demand_file` if `in_substation_folder` is true)
-
-## Running the Script
-
-To run the analysis, navigate to the project's root directory (`flex_270425`) in your terminal and execute the `main.py` script using Python.
-
-**Command:**
+To run basic firm capacity analysis without competitions:
 
 ```bash
-# Make sure you are in the flex_270425 directory
-# Activate your Python environment if necessary (e.g., venv)
+# Run from the flex_270425 directory
 python firm_capacity_analysis/src/main.py
 ```
 
-The script will:
+This will:
+1. Read configuration from `firm_capacity_analysis/config.yaml`
+2. Process each substation defined in the configuration
+3. Generate output plots and results in the specified output directory
 
-1.  Read the configuration from `firm_capacity_analysis/config.yaml`.
-2.  Process each substation defined in the configuration.
-3.  Load the corresponding demand data CSV file.
-4.  Perform calculations (`energy_above_capacity`, `energy_peak_based`, `invert_capacity`).
-5.  Generate output plots (`E_curve_plain.png`, `E_curve_peak.png`) and results (`firm_capacity_results.csv`, `metadata.json`) in the specified output directory for each substation.
-6.  Print status messages or errors to the console.
+### Firm Capacity with Competitions
 
-**Example Output Location:**
+To run the enhanced version that includes competition generation:
 
-If `output.base_dir` is set to `output` in `config.yaml` and a substation name is `SubstationA`, the results for that substation will be saved in:
+```bash
+# Run from the flex_270425 directory
+python firm_capacity_analysis/firm_capacity_with_competitions.py --competitions
+```
 
-`firm_capacity_analysis/output/SubstationA/`
+## Command Line Options
 
---- 
+The system supports several command-line options for customized operation:
+
+| Option | Description | Example |
+|--------|-------------|---------|
+| `--config` | Path to config file | `--config path/to/config.yaml` |
+| `--competitions` | Generate competitions | `--competitions` |
+| `--schema` | Path to competition schema | `--schema path/to/schema.json` |
+| `--year` | Target year for competition dates | `--year 2025` |
+| `--targets` | Path to site-specific MWh targets | `--targets path/to/targets.csv` |
+
+### Using Site-Specific Targets
+
+To use custom energy targets for each substation:
+
+```bash
+python firm_capacity_analysis/firm_capacity_with_competitions.py --competitions --targets data/samples/site_targets.csv
+```
+
+The targets CSV file should have columns `site_name` and `target_mwh`.
+
+### Setting a Target Year
+
+To generate competitions for a specific year:
+
+```bash
+python firm_capacity_analysis/firm_capacity_with_competitions.py --competitions --year 2025
+```
+
+## Processing Parquet Files
+
+For large datasets stored in parquet format:
+
+```bash
+python firm_capacity_analysis/firm_capacity_with_competitions.py --competitions --parquet data/raw/substations.parquet
+```
+
+Additional parquet processing options:
+
+| Option | Description | Example |
+|--------|-------------|---------|
+| `--filter` | Filter network groups (comma-separated) | `--filter Monktonhall,Substation2` |
+| `--workers` | Number of parallel workers | `--workers 4` |
+| `--skip-existing` | Skip network groups with existing results | `--skip-existing` |
+
+Example with all parquet options:
+
+```bash
+python firm_capacity_analysis/firm_capacity_with_competitions.py \
+  --competitions \
+  --parquet data/raw/substations.parquet \
+  --filter Monktonhall \
+  --workers 2 \
+  --skip-existing \
+  --targets data/samples/site_targets.csv \
+  --year 2025
+```
+
+## Desktop Application
+
+To run the desktop application:
+
+```bash
+# Run from the flex_270425 directory
+python firm_capacity_analysis/app.py
+```
+
+Or use the packaged executable if available:
+
+```bash
+./FlexibilityAnalysisSystem.exe  # Windows
+./FlexibilityAnalysisSystem      # macOS/Linux
+```
+
+## Test Commands
+
+See the [TEST_COMMANDS.md](tests/TEST_COMMANDS.md) file for detailed testing commands.
+
+## Output Structure
+
+The system outputs results to the directory specified in the configuration file, typically:
+
+```
+output/
+└── {substation}/
+    ├── E_curve_plain.png         # Plain energy curve plot
+    ├── E_curve_peak.png          # Peak-based energy curve plot
+    ├── firm_capacity_results.csv # Tabular results
+    ├── metadata.json             # Metadata in JSON format
+    ├── competitions.json         # Generated competitions (if enabled)
+    └── service_window_mwh.csv    # Service window MWh data (if generated)
+```
+
+## Configuration
+
+The system is configured through `config.yaml` files. Key configuration sections include:
+
+```yaml
+input:
+  demand_base_dir: "./data/samples/"
+  in_substation_folder: false
+
+output:
+  base_dir: "./output"
+
+firm_capacity:
+  target_mwh: 300.0  # Target energy threshold
+  tolerance: 0.01    # Bisection search tolerance
+
+competitions:
+  procurement_window_size_minutes: 30
+  daily_service_periods: true
+  financial_year: "2025/26"
+
+substations:
+  - name: substation1
+    demand_file: "substation1.csv"
+```
+
+For full documentation, see the [detailed documentation](docs/index.md).

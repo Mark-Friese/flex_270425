@@ -29,3 +29,6 @@ data/samples/network-flow-dataset-power-current-and-embedded-generation-monktonh
 data/samples/monktonhall.csv
 data/raw/network-flow-dataset-power-current-and-embedded-generation.parquet
 data/raw/monktonhall.parquet
+
+# MkDocs documentation build
+site/
