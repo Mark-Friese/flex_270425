@@ -63,7 +63,8 @@ This desktop application provides a user-friendly interface for the Flexibility 
    - **Summary**: Key metrics from the analysis
    - **Plots**: Visualization of demand curves and capacity thresholds
    - **Competitions**: Generated competition specifications
-   - **Map**: Geographical representation of results (placeholder in current version)
+   - **Map**: Geographical representation of results
+   - **Documentation**: Built-in system documentation for offline reference
 
 7. **Export or Save Results**: Results are automatically saved to the output directory specified in the configuration file.
 
@@ -102,11 +103,39 @@ substations:
     demand_file: "demand.csv"
 ```
 
+## Documentation
+
+The application includes comprehensive built-in documentation accessible through the "Documentation" tab. This documentation is available offline and covers:
+
+- Installation and setup instructions
+- User guides for all features
+- Technical details about the firm capacity analysis
+- Service window and competition generation algorithms
+- Reference materials for configuration options
+- Developer guides for extending functionality
+
+### Building the Documentation
+
+The documentation is built using [MkDocs](https://www.mkdocs.org/) with the [Material](https://squidfunk.github.io/mkdocs-material/) theme. To build or update the documentation:
+
+1. Install the required packages:
+   ```
+   pip install mkdocs mkdocs-material
+   ```
+
+2. Build the documentation:
+   ```
+   python build_docs.py
+   ```
+
+This will build the documentation and copy it to the appropriate location for the application to access.
+
 ## Troubleshooting
 
 - **Application won't start**: Ensure you have extracted all files from the ZIP archive if downloading a packaged release.
 - **Missing dependencies**: The packaged application includes all required dependencies. If building from source, make sure all requirements are installed.
 - **Data loading issues**: Check your configuration file and ensure all paths are correct. Data files should be in CSV format with 'Timestamp' and 'Demand (MW)' columns.
+- **Documentation not loading**: If the documentation tab shows errors, ensure the documentation has been built with `python build_docs.py` before packaging the application.
 
 ## License
 

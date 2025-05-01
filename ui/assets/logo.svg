@@ -1,19 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 60" width="240" height="60">
-  <!-- Background shape -->
-  <rect x="0" y="10" width="60" height="40" rx="5" fill="#00A443" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 150" width="250" height="150">
+  <!-- Background shape with solid green color -->
+  <rect x="0" y="0" width="250" height="150" rx="10" fill="#00A443" />
   
-  <!-- Lightning bolt icon -->
-  <path d="M30 15 L20 30 L30 30 L18 45 L20 35 L10 35 L30 15" fill="#FFF5EC" />
+  <!-- Lightning bolt icon - white -->
+  <path d="M75 40 L45 80 L75 80 L35 120 L45 90 L15 90 L75 40" fill="#FFFFFF" />
   
-  <!-- Power grid lines -->
-  <line x1="40" y1="25" x2="55" y2="25" stroke="#0DA9FF" stroke-width="2" />
-  <line x1="40" y1="35" x2="55" y2="35" stroke="#0DA9FF" stroke-width="2" />
-  <circle cx="40" cy="25" r="2" fill="#FF9C1A" />
-  <circle cx="40" cy="35" r="2" fill="#FF9C1A" />
-  <circle cx="55" cy="25" r="2" fill="#FF9C1A" />
-  <circle cx="55" cy="35" r="2" fill="#FF9C1A" />
+  <!-- Power grid lines - white -->
+  <line x1="105" y1="65" x2="145" y2="65" stroke="#FFFFFF" stroke-width="3" />
+  <line x1="105" y1="95" x2="145" y2="95" stroke="#FFFFFF" stroke-width="3" />
+  <circle cx="105" cy="65" r="4" fill="#FFFFFF" />
+  <circle cx="105" cy="95" r="4" fill="#FFFFFF" />
+  <circle cx="145" cy="65" r="4" fill="#FFFFFF" />
+  <circle cx="145" cy="95" r="4" fill="#FFFFFF" />
   
-  <!-- Text portion -->
-  <text x="70" y="30" font-family="Arial, sans-serif" font-weight="bold" font-size="16" fill="#00402A">Flexibility</text>
-  <text x="70" y="46" font-family="Arial, sans-serif" font-weight="bold" font-size="16" fill="#00A443">Analysis System</text>
+  <!-- Text portion - white -->
+  <text x="170" y="75" font-family="Arial, sans-serif" font-weight="bold" font-size="24" fill="#FFFFFF" text-anchor="middle">Flexibility</text>
+  <text x="170" y="105" font-family="Arial, sans-serif" font-weight="bold" font-size="24" fill="#FFFFFF" text-anchor="middle">Analysis System</text>
 </svg>

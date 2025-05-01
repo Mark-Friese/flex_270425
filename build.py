@@ -88,6 +88,42 @@ def post_build_processing():
     
     print(f"Build completed. Output directory: {dist_dir.absolute()}")
 
+def copy_documentation():
+    """Copy the built documentation into the distribution"""
+    site_dir = Path('site')
+    if not site_dir.exists():
+        print("Documentation site directory not found. Skipping documentation.")
+        return
+    
+    dist_dir = Path('dist/FlexibilityAnalysisSystem')
+    docs_dir = dist_dir / 'ui' / 'site'
+    
+    # Create docs directory if it doesn't exist
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Copy all contents of site directory to docs directory
+    print(f"Copying documentation from {site_dir} to {docs_dir}...")
+    try:
+        import shutil
+        if docs_dir.exists():
+            # Clear existing documentation files
+            for item in docs_dir.iterdir():
+                if item.is_dir():
+                    shutil.rmtree(item)
+                else:
+                    item.unlink()
+        
+        # Copy all contents
+        for item in site_dir.iterdir():
+            if item.is_dir():
+                shutil.copytree(item, docs_dir / item.name)
+            else:
+                shutil.copy2(item, docs_dir / item.name)
+        
+        print(f"Documentation copied successfully.")
+    except Exception as e:
+        print(f"Error copying documentation: {str(e)}")
+
 def main():
     """Main build process"""
     print("Starting build process for Flexibility Analysis System...")
@@ -100,6 +136,9 @@ def main():
     
     # Post-build processing
     post_build_processing()
+    
+    # Copy documentation if available
+    copy_documentation()
     
     print("Build complete!")
 

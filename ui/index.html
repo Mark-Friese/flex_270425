@@ -16,18 +16,18 @@
 <body>
     <div class="container-fluid">
         <!-- Header -->
-        <header class="bg-dark text-white p-3 d-flex justify-content-between align-items-center">
+        <header class="bg-dark text-white py-2 px-4 d-flex justify-content-between align-items-center shadow">
             <div class="d-flex align-items-center">
                 <img src="assets/logo.svg" alt="Flexibility Analysis System Logo" class="app-logo">
-                <h1 class="h3 m-0">Flexibility Analysis System</h1>
+                <h1 class="h2 m-0 fw-bold">Flexibility Analysis System</h1>
             </div>
             <div class="d-flex align-items-center">
                 <div id="configStatus" class="me-3">
-                    <span class="badge bg-warning">Config Not Loaded</span>
+                    <span class="badge bg-warning py-2 px-3">Config Not Loaded</span>
                 </div>
                 <div class="dropdown">
-                    <button class="btn btn-outline-light dropdown-toggle" type="button" id="settingsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="fas fa-cog"></i>
+                    <button class="btn btn-outline-light dropdown-toggle rounded-pill" type="button" id="settingsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-cog me-1"></i> Settings
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="settingsDropdown">
                         <li><a class="dropdown-item" href="#" id="loadConfigBtn"><i class="fas fa-file-import me-2"></i>Load Configuration</a></li>
@@ -68,7 +68,7 @@
                                 <div class="form-text">Year to use for competition dates</div>
                             </div>
                             
-                            <button type="submit" id="runAnalysisBtn" class="btn btn-success w-100" disabled>
+                            <button type="submit" id="runAnalysisBtn" class="btn btn-success w-100 py-2 fw-bold" disabled>
                                 <i class="fas fa-play me-2"></i>Run Analysis
                             </button>
                         </form>
@@ -124,6 +124,11 @@
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="map-tab" data-bs-toggle="tab" data-bs-target="#map" type="button" role="tab">
                                     <i class="fas fa-map-marked-alt me-1"></i>Map
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="docs-tab" data-bs-toggle="tab" data-bs-target="#docs" type="button" role="tab">
+                                    <i class="fas fa-book me-1"></i>Documentation
                                 </button>
                             </li>
                         </ul>
@@ -345,6 +350,44 @@
                                     }
                                 });
                             </script>
+                            
+                            <!-- Documentation Tab -->
+                            <div class="tab-pane fade" id="docs" role="tabpanel">
+                                <div class="d-flex justify-content-between mb-3 align-items-center">
+                                    <h5 class="mb-0">System Documentation</h5>
+                                    <div>
+                                        <div class="btn-group">
+                                            <button class="btn btn-sm btn-outline-primary" id="docHomeBtn">
+                                                <i class="fas fa-home me-1"></i>Home
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-primary" id="docBackBtn">
+                                                <i class="fas fa-arrow-left me-1"></i>Back
+                                            </button>
+                                        </div>
+                                        <select id="docSectionSelect" class="form-select form-select-sm ms-2" style="width: auto; display: inline-block;">
+                                            <option value="index.html">Home</option>
+                                            <option value="installation/index.html">Installation</option>
+                                            <option value="usage/index.html">User Guide</option>
+                                            <option value="technical/index.html">Technical Docs</option>
+                                            <option value="development/index.html">Developer Guide</option>
+                                            <option value="reference/glossary.html">Glossary</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="card shadow-sm mb-3">
+                                    <div class="card-body p-0">
+                                        <div id="docContainer" style="height: 600px; border: 1px solid #dee2e6; border-radius: 0.25rem;">
+                                            <iframe id="docFrame" src="" style="width: 100%; height: 100%; border: none;" title="Documentation"></iframe>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    This is the built-in documentation for the Flexibility Analysis System. You can browse all topics offline from within the application.
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -352,8 +395,8 @@
         </div>
         
         <!-- Footer -->
-        <footer class="bg-light text-center p-3 mt-3">
-            <div class="small text-muted">Flexibility Analysis System &copy; 2025</div>
+        <footer class="bg-dark text-white text-center py-3 mt-4">
+            <div class="small">Flexibility Analysis System &copy; 2025</div>
         </footer>
     </div>
     

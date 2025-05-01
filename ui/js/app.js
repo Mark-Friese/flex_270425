@@ -6,6 +6,10 @@
  */
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Documentation state
+    let docHistory = [];
+    let currentDocPage = 'index.html';
+    
     // UI Element References
     const loadConfigBtn = document.getElementById('loadConfigBtn');
     const outputDirBtn = document.getElementById('outputDirBtn');
@@ -53,6 +57,25 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('map-tab').addEventListener('shown.bs.tab', function() {
         initMap();
     });
+    
+    // Tab change listener for documentation
+    document.getElementById('docs-tab')?.addEventListener('shown.bs.tab', function() {
+        initDocumentation();
+    });
+    
+    // Documentation navigation listeners
+    document.getElementById('docHomeBtn')?.addEventListener('click', function() {
+        loadDocPage('index.html');
+    });
+    
+    document.getElementById('docBackBtn')?.addEventListener('click', function() {
+        goBackInDocHistory();
+    });
+    
+    document.getElementById('docSectionSelect')?.addEventListener('change', function() {
+        loadDocPage(this.value);
+    });
+    
     
     // Check for config data on load
     initializeApp();
@@ -1860,6 +1883,123 @@ document.addEventListener('DOMContentLoaded', function() {
             return date.toLocaleString();
         } catch (error) {
             return dateTimeString;
+        }
+    }
+    
+    /**
+     * Initialize the documentation tab
+     */
+    function initDocumentation() {
+        const docFrame = document.getElementById('docFrame');
+        if (docFrame && !docFrame.src) {
+            loadDocPage('index.html');
+        }
+        
+        // Handle iframe navigation events (link clicks inside the documentation)
+        docFrame.addEventListener('load', function() {
+            try {
+                // Try to access the iframe's content if it's from the same origin
+                const iframeDocument = docFrame.contentDocument || docFrame.contentWindow.document;
+                
+                // Add event listener to all links in the iframe
+                const links = iframeDocument.querySelectorAll('a');
+                links.forEach(link => {
+                    if (!link.getAttribute('data-listener-added')) {
+                        link.setAttribute('data-listener-added', 'true');
+                        link.addEventListener('click', function(e) {
+                            const href = this.getAttribute('href');
+                            
+                            // Only handle relative links within the documentation
+                            if (href && !href.startsWith('http') && !href.startsWith('#')) {
+                                e.preventDefault();
+                                loadDocPage(href);
+                            }
+                        });
+                    }
+                });
+                
+                // Update the title to match the loaded page
+                if (iframeDocument.title) {
+                    // Update page title if needed
+                }
+            } catch (error) {
+                // Ignore cross-origin errors
+                console.warn('Could not access iframe content:', error);
+            }
+        });
+    }
+    
+    /**
+     * Load a documentation page in the iframe
+     */
+    function loadDocPage(page) {
+        const docFrame = document.getElementById('docFrame');
+        if (!docFrame) return;
+        
+        // Store the current page in history before changing
+        if (currentDocPage && currentDocPage !== page) {
+            docHistory.push(currentDocPage);
+            
+            // Limit history size
+            if (docHistory.length > 50) {
+                docHistory.shift();
+            }
+        }
+        
+        // Update current page
+        currentDocPage = page;
+        
+        // Load the page
+        docFrame.src = `site/${page}`;
+        
+        // Update select dropdown if it matches one of our predefined sections
+        const docSelect = document.getElementById('docSectionSelect');
+        if (docSelect) {
+            for (let i = 0; i < docSelect.options.length; i++) {
+                if (docSelect.options[i].value === page) {
+                    docSelect.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+        
+        // Enable/disable back button based on history
+        const backBtn = document.getElementById('docBackBtn');
+        if (backBtn) {
+            backBtn.disabled = docHistory.length === 0;
+        }
+    }
+    
+    /**
+     * Go back to the previous page in the documentation history
+     */
+    function goBackInDocHistory() {
+        if (docHistory.length > 0) {
+            const previousPage = docHistory.pop();
+            const docFrame = document.getElementById('docFrame');
+            
+            // Update current page without adding to history
+            currentDocPage = previousPage;
+            
+            // Load the page
+            docFrame.src = `site/${previousPage}`;
+            
+            // Update select dropdown
+            const docSelect = document.getElementById('docSectionSelect');
+            if (docSelect) {
+                for (let i = 0; i < docSelect.options.length; i++) {
+                    if (docSelect.options[i].value === previousPage) {
+                        docSelect.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+            
+            // Update back button state
+            const backBtn = document.getElementById('docBackBtn');
+            if (backBtn) {
+                backBtn.disabled = docHistory.length === 0;
+            }
         }
     }
 });

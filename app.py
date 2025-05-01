@@ -62,6 +62,11 @@ class FlexibilityAnalysisAPI:
         self.assets_dir = self.base_dir / "ui" / "assets"
         if not self.assets_dir.exists():
             self.assets_dir.mkdir(parents=True, exist_ok=True)
+            
+        # Ensure documentation directory exists
+        self.docs_dir = self.base_dir / "ui" / "docs"
+        if not self.docs_dir.exists():
+            self.docs_dir.mkdir(parents=True, exist_ok=True)
         
     def select_config_file(self):
         """Open a file dialog to select a configuration file"""
@@ -539,8 +544,50 @@ class FlexibilityAnalysisAPI:
             logger.error(f"Error generating map data: {str(e)}")
             return {"status": "error", "message": str(e)}
 
+def copy_documentation():
+    """Copy built documentation from 'site' folder to 'ui/docs'.
+    
+    This makes the documentation available for offline viewing in the app.
+    """
+    site_dir = Path(__file__).resolve().parent / "site"
+    docs_dir = Path(__file__).resolve().parent / "ui" / "site"
+    
+    if not site_dir.exists():
+        logger.warning(f"Documentation source directory '{site_dir}' not found.")
+        return False
+    
+    # Create docs directory if it doesn't exist
+    if not docs_dir.exists():
+        docs_dir.mkdir(parents=True, exist_ok=True)
+    
+    try:
+        # Remove existing documentation files to ensure a clean copy
+        import shutil
+        if docs_dir.exists():
+            for item in docs_dir.iterdir():
+                if item.is_dir():
+                    shutil.rmtree(item)
+                else:
+                    item.unlink()
+        
+        # Copy all contents of site directory to docs directory
+        for item in site_dir.iterdir():
+            if item.is_dir():
+                shutil.copytree(item, docs_dir / item.name)
+            else:
+                shutil.copy2(item, docs_dir / item.name)
+        
+        logger.info(f"Documentation copied successfully from {site_dir} to {docs_dir}")
+        return True
+    except Exception as e:
+        logger.error(f"Error copying documentation: {str(e)}")
+        return False
+
 def main():
     """Main function to start the application"""
+    # Copy documentation for offline use
+    copy_documentation()
+    
     api = FlexibilityAnalysisAPI()
     
     # Create UI directory if it doesn't exist
