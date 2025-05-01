@@ -1,10 +1,10 @@
 {
   "substation": "Monktonhall",
-  "C_plain_MW": 11.59825,
-  "C_peak_MW": 11.59825,
+  "C_plain_MW": 12.96275,
+  "C_peak_MW": 12.96275,
   "mean_demand_MW": 8.18502373597789,
   "max_demand_MW": 21.832,
   "total_energy_MWh": 75519.1215,
-  "energy_above_capacity_MWh": 1143.6992499999992,
-  "target_mwh": 650.7879
+  "energy_above_capacity_MWh": 117.92450000000005,
+  "target_mwh": 150
 }

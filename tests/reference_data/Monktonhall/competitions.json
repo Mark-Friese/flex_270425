@@ -1,14 +1,16 @@
 [
   {
-    "reference": "T2504_SPEN_Monktonhall",
-    "name": "MONKTONHALL April 2025",
-    "open": "2025-03-03T08:30:00Z",
-    "closed": "2025-03-03T17:00:00Z",
+    "reference": "T2501_SPEN_Monktonhall",
+    "name": "MONKTONHALL January 2025",
+    "open": "2024-12-16T08:30:00Z",
+    "closed": "2024-12-16T17:00:00Z",
     "area_buffer": "0.100",
-    "qualification_open": "2025-02-17T12:00:00Z",
-    "qualification_closed": "2025-03-03T08:00:00Z",
+    "qualification_open": "2024-12-02T12:00:00Z",
+    "qualification_closed": "2024-12-16T08:00:00Z",
     "boundary": {
-      "area_references": ["MONKTONHALL"],
+      "area_references": [
+        "MONKTONHALL"
+      ],
       "postcodes": []
     },
     "need_type": "Pre Fault",
@@ -17,28 +19,848 @@
     "power_type": "Active Power",
     "service_periods": [
       {
-        "name": "April",
-        "start": "2025-04-01",
-        "end": "2025-04-30",
+        "name": "January",
+        "start": "2025-01-01",
+        "end": "2025-01-31",
         "service_windows": [
           {
-            "name": "Monday 17:00-19:00",
-            "start": "17:00",
-            "end": "19:00",
-            "service_days": ["Monday"],
+            "name": "Sunday 17:30-18:30",
+            "start": "17:30",
+            "end": "18:30",
+            "service_days": [
+              "Sunday"
+            ],
             "minimum_aggregate_asset_size": "0.100",
-            "capacity_required": "2.500"
+            "capacity_required": "0.321"
           },
           {
-            "name": "Friday 17:30-19:30",
+            "name": "Monday 16:30-20:00",
+            "start": "16:30",
+            "end": "20:00",
+            "service_days": [
+              "Monday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "1.366"
+          },
+          {
+            "name": "Tuesday 16:30-21:00",
+            "start": "16:30",
+            "end": "21:00",
+            "service_days": [
+              "Tuesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "1.645"
+          },
+          {
+            "name": "Wednesday 17:00-20:30",
+            "start": "17:00",
+            "end": "20:30",
+            "service_days": [
+              "Wednesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "1.604"
+          },
+          {
+            "name": "Thursday 11:00-11:30",
+            "start": "11:00",
+            "end": "11:30",
+            "service_days": [
+              "Thursday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.100"
+          },
+          {
+            "name": "Thursday 16:30-21:00",
+            "start": "16:30",
+            "end": "21:00",
+            "service_days": [
+              "Thursday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "1.733"
+          },
+          {
+            "name": "Friday 10:30-12:00",
+            "start": "10:30",
+            "end": "12:00",
+            "service_days": [
+              "Friday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.147"
+          },
+          {
+            "name": "Friday 13:30-16:00",
+            "start": "13:30",
+            "end": "16:00",
+            "service_days": [
+              "Friday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.252"
+          },
+          {
+            "name": "Friday 16:30-20:00",
+            "start": "16:30",
+            "end": "20:00",
+            "service_days": [
+              "Friday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.975"
+          },
+          {
+            "name": "Saturday 18:30-19:00",
+            "start": "18:30",
+            "end": "19:00",
+            "service_days": [
+              "Saturday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.104"
+          },
+          {
+            "name": "Sunday 17:00-19:30",
+            "start": "17:00",
+            "end": "19:30",
+            "service_days": [
+              "Sunday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.640"
+          },
+          {
+            "name": "Monday 17:00-19:30",
+            "start": "17:00",
+            "end": "19:30",
+            "service_days": [
+              "Monday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.747"
+          },
+          {
+            "name": "Tuesday 17:30-19:30",
             "start": "17:30",
             "end": "19:30",
-            "service_days": ["Friday"],
+            "service_days": [
+              "Tuesday"
+            ],
             "minimum_aggregate_asset_size": "0.100",
-            "capacity_required": "3.200"
+            "capacity_required": "0.400"
+          },
+          {
+            "name": "Wednesday 18:00-19:00",
+            "start": "18:00",
+            "end": "19:00",
+            "service_days": [
+              "Wednesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.200"
+          },
+          {
+            "name": "Thursday 18:00-19:30",
+            "start": "18:00",
+            "end": "19:30",
+            "service_days": [
+              "Thursday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.280"
+          },
+          {
+            "name": "Monday 17:30-19:30",
+            "start": "17:30",
+            "end": "19:30",
+            "service_days": [
+              "Monday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.639"
+          },
+          {
+            "name": "Tuesday 18:00-20:00",
+            "start": "18:00",
+            "end": "20:00",
+            "service_days": [
+              "Tuesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.560"
+          },
+          {
+            "name": "Thursday 10:00-10:30",
+            "start": "10:00",
+            "end": "10:30",
+            "service_days": [
+              "Thursday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.567"
+          },
+          {
+            "name": "Thursday 11:00-11:30",
+            "start": "11:00",
+            "end": "11:30",
+            "service_days": [
+              "Thursday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "8.869"
+          },
+          {
+            "name": "Thursday 18:00-19:30",
+            "start": "18:00",
+            "end": "19:30",
+            "service_days": [
+              "Thursday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.438"
+          },
+          {
+            "name": "Friday 18:00-19:00",
+            "start": "18:00",
+            "end": "19:00",
+            "service_days": [
+              "Friday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.100"
+          },
+          {
+            "name": "Sunday 17:30-19:00",
+            "start": "17:30",
+            "end": "19:00",
+            "service_days": [
+              "Sunday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.518"
+          },
+          {
+            "name": "Monday 16:30-20:00",
+            "start": "16:30",
+            "end": "20:00",
+            "service_days": [
+              "Monday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "1.485"
+          },
+          {
+            "name": "Tuesday 17:30-20:30",
+            "start": "17:30",
+            "end": "20:30",
+            "service_days": [
+              "Tuesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.913"
+          },
+          {
+            "name": "Wednesday 17:30-20:00",
+            "start": "17:30",
+            "end": "20:00",
+            "service_days": [
+              "Wednesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.995"
+          },
+          {
+            "name": "Thursday 17:30-20:30",
+            "start": "17:30",
+            "end": "20:30",
+            "service_days": [
+              "Thursday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.841"
+          },
+          {
+            "name": "Friday 18:00-19:30",
+            "start": "18:00",
+            "end": "19:30",
+            "service_days": [
+              "Friday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.170"
           }
         ]
       }
-    ]
+    ],
+    "maximum_connection_voltage": "33",
+    "product_type": "Scheduled Utilisation",
+    "dps_record_reference": "flex_t2501_spen_monktonhall",
+    "minimum_connection_voltage": "0.24"
+  },
+  {
+    "reference": "T2502_SPEN_Monktonhall",
+    "name": "MONKTONHALL February 2025",
+    "open": "2025-01-15T08:30:00Z",
+    "closed": "2025-01-15T17:00:00Z",
+    "area_buffer": "0.100",
+    "qualification_open": "2025-01-01T12:00:00Z",
+    "qualification_closed": "2025-01-15T08:00:00Z",
+    "boundary": {
+      "area_references": [
+        "MONKTONHALL"
+      ],
+      "postcodes": []
+    },
+    "need_type": "Pre Fault",
+    "type": "Utilisation",
+    "need_direction": "Deficit",
+    "power_type": "Active Power",
+    "service_periods": [
+      {
+        "name": "February",
+        "start": "2025-02-01",
+        "end": "2025-02-28",
+        "service_windows": [
+          {
+            "name": "Sunday 17:30-18:00",
+            "start": "17:30",
+            "end": "18:00",
+            "service_days": [
+              "Sunday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.135"
+          },
+          {
+            "name": "Monday 17:30-20:00",
+            "start": "17:30",
+            "end": "20:00",
+            "service_days": [
+              "Monday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.626"
+          },
+          {
+            "name": "Tuesday 18:00-19:30",
+            "start": "18:00",
+            "end": "19:30",
+            "service_days": [
+              "Tuesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.476"
+          },
+          {
+            "name": "Wednesday 18:00-20:00",
+            "start": "18:00",
+            "end": "20:00",
+            "service_days": [
+              "Wednesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.526"
+          },
+          {
+            "name": "Thursday 18:00-20:00",
+            "start": "18:00",
+            "end": "20:00",
+            "service_days": [
+              "Thursday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.784"
+          },
+          {
+            "name": "Monday 17:30-20:00",
+            "start": "17:30",
+            "end": "20:00",
+            "service_days": [
+              "Monday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.843"
+          },
+          {
+            "name": "Tuesday 18:00-18:30",
+            "start": "18:00",
+            "end": "18:30",
+            "service_days": [
+              "Tuesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.100"
+          },
+          {
+            "name": "Tuesday 19:00-20:00",
+            "start": "19:00",
+            "end": "20:00",
+            "service_days": [
+              "Tuesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.380"
+          },
+          {
+            "name": "Wednesday 17:30-20:00",
+            "start": "17:30",
+            "end": "20:00",
+            "service_days": [
+              "Wednesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.732"
+          },
+          {
+            "name": "Thursday 18:00-20:00",
+            "start": "18:00",
+            "end": "20:00",
+            "service_days": [
+              "Thursday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.528"
+          },
+          {
+            "name": "Friday 18:30-19:00",
+            "start": "18:30",
+            "end": "19:00",
+            "service_days": [
+              "Friday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.100"
+          },
+          {
+            "name": "Monday 17:00-20:30",
+            "start": "17:00",
+            "end": "20:30",
+            "service_days": [
+              "Monday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "1.379"
+          },
+          {
+            "name": "Wednesday 17:30-20:30",
+            "start": "17:30",
+            "end": "20:30",
+            "service_days": [
+              "Wednesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.798"
+          },
+          {
+            "name": "Thursday 18:30-19:00",
+            "start": "18:30",
+            "end": "19:00",
+            "service_days": [
+              "Thursday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.100"
+          },
+          {
+            "name": "Wednesday 18:00-20:00",
+            "start": "18:00",
+            "end": "20:00",
+            "service_days": [
+              "Wednesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.374"
+          }
+        ]
+      }
+    ],
+    "maximum_connection_voltage": "33",
+    "product_type": "Scheduled Utilisation",
+    "dps_record_reference": "flex_t2502_spen_monktonhall",
+    "minimum_connection_voltage": "0.24"
+  },
+  {
+    "reference": "T2503_SPEN_Monktonhall",
+    "name": "MONKTONHALL March 2025",
+    "open": "2025-02-17T08:30:00Z",
+    "closed": "2025-02-17T17:00:00Z",
+    "area_buffer": "0.100",
+    "qualification_open": "2025-02-03T12:00:00Z",
+    "qualification_closed": "2025-02-17T08:00:00Z",
+    "boundary": {
+      "area_references": [
+        "MONKTONHALL"
+      ],
+      "postcodes": []
+    },
+    "need_type": "Pre Fault",
+    "type": "Utilisation",
+    "need_direction": "Deficit",
+    "power_type": "Active Power",
+    "service_periods": [
+      {
+        "name": "March",
+        "start": "2025-03-01",
+        "end": "2025-03-31",
+        "service_windows": [
+          {
+            "name": "Tuesday 18:30-19:00",
+            "start": "18:30",
+            "end": "19:00",
+            "service_days": [
+              "Tuesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.100"
+          },
+          {
+            "name": "Monday 19:00-19:30",
+            "start": "19:00",
+            "end": "19:30",
+            "service_days": [
+              "Monday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.100"
+          },
+          {
+            "name": "Wednesday 19:00-19:30",
+            "start": "19:00",
+            "end": "19:30",
+            "service_days": [
+              "Wednesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.100"
+          }
+        ]
+      }
+    ],
+    "maximum_connection_voltage": "33",
+    "product_type": "Scheduled Utilisation",
+    "dps_record_reference": "flex_t2503_spen_monktonhall",
+    "minimum_connection_voltage": "0.24"
+  },
+  {
+    "reference": "T2509_SPEN_Monktonhall",
+    "name": "MONKTONHALL September 2025",
+    "open": "2025-08-15T08:30:00Z",
+    "closed": "2025-08-15T17:00:00Z",
+    "area_buffer": "0.100",
+    "qualification_open": "2025-08-01T12:00:00Z",
+    "qualification_closed": "2025-08-15T08:00:00Z",
+    "boundary": {
+      "area_references": [
+        "MONKTONHALL"
+      ],
+      "postcodes": []
+    },
+    "need_type": "Pre Fault",
+    "type": "Utilisation",
+    "need_direction": "Deficit",
+    "power_type": "Active Power",
+    "service_periods": [
+      {
+        "name": "September",
+        "start": "2025-09-01",
+        "end": "2025-09-30",
+        "service_windows": [
+          {
+            "name": "Tuesday 19:30-20:00",
+            "start": "19:30",
+            "end": "20:00",
+            "service_days": [
+              "Tuesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.100"
+          }
+        ]
+      }
+    ],
+    "maximum_connection_voltage": "33",
+    "product_type": "Scheduled Utilisation",
+    "dps_record_reference": "flex_t2509_spen_monktonhall",
+    "minimum_connection_voltage": "0.24"
+  },
+  {
+    "reference": "T2510_SPEN_Monktonhall",
+    "name": "MONKTONHALL October 2025",
+    "open": "2025-09-15T08:30:00Z",
+    "closed": "2025-09-15T17:00:00Z",
+    "area_buffer": "0.100",
+    "qualification_open": "2025-09-01T12:00:00Z",
+    "qualification_closed": "2025-09-15T08:00:00Z",
+    "boundary": {
+      "area_references": [
+        "MONKTONHALL"
+      ],
+      "postcodes": []
+    },
+    "need_type": "Pre Fault",
+    "type": "Utilisation",
+    "need_direction": "Deficit",
+    "power_type": "Active Power",
+    "service_periods": [
+      {
+        "name": "October",
+        "start": "2025-10-01",
+        "end": "2025-10-31",
+        "service_windows": [
+          {
+            "name": "Saturday 11:30-13:00",
+            "start": "11:30",
+            "end": "13:00",
+            "service_days": [
+              "Saturday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "2.907"
+          }
+        ]
+      }
+    ],
+    "maximum_connection_voltage": "33",
+    "product_type": "Scheduled Utilisation",
+    "dps_record_reference": "flex_t2510_spen_monktonhall",
+    "minimum_connection_voltage": "0.24"
+  },
+  {
+    "reference": "T2511_SPEN_Monktonhall",
+    "name": "MONKTONHALL November 2025",
+    "open": "2025-10-15T08:30:00Z",
+    "closed": "2025-10-15T17:00:00Z",
+    "area_buffer": "0.100",
+    "qualification_open": "2025-10-01T12:00:00Z",
+    "qualification_closed": "2025-10-15T08:00:00Z",
+    "boundary": {
+      "area_references": [
+        "MONKTONHALL"
+      ],
+      "postcodes": []
+    },
+    "need_type": "Pre Fault",
+    "type": "Utilisation",
+    "need_direction": "Deficit",
+    "power_type": "Active Power",
+    "service_periods": [
+      {
+        "name": "November",
+        "start": "2025-11-01",
+        "end": "2025-11-30",
+        "service_windows": [
+          {
+            "name": "Friday 11:30-12:00",
+            "start": "11:30",
+            "end": "12:00",
+            "service_days": [
+              "Friday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "1.906"
+          },
+          {
+            "name": "Tuesday 17:00-20:00",
+            "start": "17:00",
+            "end": "20:00",
+            "service_days": [
+              "Tuesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.988"
+          },
+          {
+            "name": "Wednesday 17:00-20:30",
+            "start": "17:00",
+            "end": "20:30",
+            "service_days": [
+              "Wednesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "1.369"
+          },
+          {
+            "name": "Thursday 17:00-20:30",
+            "start": "17:00",
+            "end": "20:30",
+            "service_days": [
+              "Thursday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "1.225"
+          },
+          {
+            "name": "Friday 17:00-20:00",
+            "start": "17:00",
+            "end": "20:00",
+            "service_days": [
+              "Friday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "1.225"
+          },
+          {
+            "name": "Saturday 17:30-18:30",
+            "start": "17:30",
+            "end": "18:30",
+            "service_days": [
+              "Saturday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.296"
+          },
+          {
+            "name": "Tuesday 17:30-19:00",
+            "start": "17:30",
+            "end": "19:00",
+            "service_days": [
+              "Tuesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.546"
+          },
+          {
+            "name": "Wednesday 17:30-19:30",
+            "start": "17:30",
+            "end": "19:30",
+            "service_days": [
+              "Wednesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.464"
+          },
+          {
+            "name": "Thursday 17:30-19:30",
+            "start": "17:30",
+            "end": "19:30",
+            "service_days": [
+              "Thursday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.568"
+          },
+          {
+            "name": "Friday 16:30-20:30",
+            "start": "16:30",
+            "end": "20:30",
+            "service_days": [
+              "Friday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "1.389"
+          }
+        ]
+      }
+    ],
+    "maximum_connection_voltage": "33",
+    "product_type": "Scheduled Utilisation",
+    "dps_record_reference": "flex_t2511_spen_monktonhall",
+    "minimum_connection_voltage": "0.24"
+  },
+  {
+    "reference": "T2512_SPEN_Monktonhall",
+    "name": "MONKTONHALL December 2025",
+    "open": "2025-11-17T08:30:00Z",
+    "closed": "2025-11-17T17:00:00Z",
+    "area_buffer": "0.100",
+    "qualification_open": "2025-11-03T12:00:00Z",
+    "qualification_closed": "2025-11-17T08:00:00Z",
+    "boundary": {
+      "area_references": [
+        "MONKTONHALL"
+      ],
+      "postcodes": []
+    },
+    "need_type": "Pre Fault",
+    "type": "Utilisation",
+    "need_direction": "Deficit",
+    "power_type": "Active Power",
+    "service_periods": [
+      {
+        "name": "December",
+        "start": "2025-12-01",
+        "end": "2025-12-31",
+        "service_windows": [
+          {
+            "name": "Tuesday 17:30-18:30",
+            "start": "17:30",
+            "end": "18:30",
+            "service_days": [
+              "Tuesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.400"
+          },
+          {
+            "name": "Wednesday 17:30-19:30",
+            "start": "17:30",
+            "end": "19:30",
+            "service_days": [
+              "Wednesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.591"
+          },
+          {
+            "name": "Thursday 17:00-20:00",
+            "start": "17:00",
+            "end": "20:00",
+            "service_days": [
+              "Thursday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.656"
+          },
+          {
+            "name": "Tuesday 17:00-19:30",
+            "start": "17:00",
+            "end": "19:30",
+            "service_days": [
+              "Tuesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.861"
+          },
+          {
+            "name": "Wednesday 17:00-20:30",
+            "start": "17:00",
+            "end": "20:30",
+            "service_days": [
+              "Wednesday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.929"
+          },
+          {
+            "name": "Thursday 12:30-15:00",
+            "start": "12:30",
+            "end": "15:00",
+            "service_days": [
+              "Thursday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "0.153"
+          },
+          {
+            "name": "Thursday 16:00-18:00",
+            "start": "16:00",
+            "end": "18:00",
+            "service_days": [
+              "Thursday"
+            ],
+            "minimum_aggregate_asset_size": "0.100",
+            "capacity_required": "1.643"
+          }
+        ]
+      }
+    ],
+    "maximum_connection_voltage": "33",
+    "product_type": "Scheduled Utilisation",
+    "dps_record_reference": "flex_t2512_spen_monktonhall",
+    "minimum_connection_voltage": "0.24"
   }
 ]
