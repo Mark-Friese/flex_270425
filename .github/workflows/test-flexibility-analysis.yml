@@ -49,46 +49,34 @@ jobs:
         mkdir -p firm_capacity_analysis/tests/output
         mkdir -p firm_capacity_analysis/tests/reference_data/Monktonhall
         
-    - name: Run reference dataset generation if needed
+    - name: Check for reference data
       run: |
-        # Only run if reference data doesn't exist
         if [ ! -d "firm_capacity_analysis/tests/reference_data" ] || [ -z "$(ls -A firm_capacity_analysis/tests/reference_data)" ] || [ ! -f "firm_capacity_analysis/tests/reference_data/Monktonhall/competitions.json" ]; then
-          echo "Generating reference datasets..."
-          
-          # Create directories
-          mkdir -p firm_capacity_analysis/tests/reference_data/Monktonhall
-          mkdir -p firm_capacity_analysis/output/Monktonhall
-          
-          # Create __init__.py files
-          echo '"""Test package for firm capacity analysis."""' > firm_capacity_analysis/tests/__init__.py
-          echo '"""Reference data package for tests."""' > firm_capacity_analysis/tests/reference_data/__init__.py
-          echo '"""Reference data for Monktonhall substation."""' > firm_capacity_analysis/tests/reference_data/Monktonhall/__init__.py
-          
-          # Create competitions.json
-          echo '[{"reference":"T2504_SPEN_Monktonhall","name":"MONKTONHALL April 2025","open":"2025-03-10T08:30:00Z","closed":"2025-03-10T17:00:00Z","area_buffer":"0.100","qualification_open":"2025-02-24T12:00:00Z","qualification_closed":"2025-03-10T08:00:00Z","boundary":{"area_references":["MONKTONHALL"],"postcodes":[]},"need_type":"Pre Fault","type":"Utilisation","need_direction":"Deficit","power_type":"Active Power","service_periods":[{"name":"April","start":"2025-04-01","end":"2025-04-30","service_windows":[{"name":"Monday 17:00-19:00","start":"17:00","end":"19:00","service_days":["Monday"],"minimum_aggregate_asset_size":"0.100","capacity_required":"1.500"}]}]}]' > firm_capacity_analysis/tests/reference_data/Monktonhall/competitions.json
-          
-          # Create metadata.json
-          echo '{"substation":"Monktonhall","C_plain_MW":11.59825,"C_peak_MW":11.59825,"mean_demand_MW":8.18502373597789,"max_demand_MW":21.832,"total_energy_MWh":75519.1215,"energy_above_capacity_MWh":1143.6992499999992,"target_mwh":650.7879}' > firm_capacity_analysis/tests/reference_data/Monktonhall/metadata.json
-          
-          # Create firm_capacity_results.csv
-          echo 'substation,C_plain_MW,C_peak_MW,mean_demand_MW,max_demand_MW,total_energy_MWh,energy_above_capacity_MWh,target_mwh' > firm_capacity_analysis/tests/reference_data/Monktonhall/firm_capacity_results.csv
-          echo 'Monktonhall,11.59825,11.59825,8.18502373597789,21.832,75519.1215,1143.6992499999992,650.7879' >> firm_capacity_analysis/tests/reference_data/Monktonhall/firm_capacity_results.csv
-          
-          # Copy to output directory
-          cp firm_capacity_analysis/tests/reference_data/Monktonhall/competitions.json firm_capacity_analysis/output/Monktonhall/
-          cp firm_capacity_analysis/tests/reference_data/Monktonhall/metadata.json firm_capacity_analysis/output/Monktonhall/
-          cp firm_capacity_analysis/tests/reference_data/Monktonhall/firm_capacity_results.csv firm_capacity_analysis/output/Monktonhall/
-          
-          # Create pytest.ini for test discovery
+          echo "ERROR: Reference data not found in repository. Tests cannot run."
+          exit 1
+        else
+          echo "Using reference data from repository"
+        fi
+        
+        # Create __init__.py files if they don't exist
+        mkdir -p firm_capacity_analysis/tests/reference_data/Monktonhall
+        [ -f firm_capacity_analysis/tests/__init__.py ] || echo '"""Test package for firm capacity analysis."""' > firm_capacity_analysis/tests/__init__.py
+        [ -f firm_capacity_analysis/tests/reference_data/__init__.py ] || echo '"""Reference data package for tests."""' > firm_capacity_analysis/tests/reference_data/__init__.py
+        [ -f firm_capacity_analysis/tests/reference_data/Monktonhall/__init__.py ] || echo '"""Reference data for Monktonhall substation."""' > firm_capacity_analysis/tests/reference_data/Monktonhall/__init__.py
+        
+        # Copy reference data to output directory for tests
+        mkdir -p firm_capacity_analysis/output/Monktonhall
+        cp firm_capacity_analysis/tests/reference_data/Monktonhall/competitions.json firm_capacity_analysis/output/Monktonhall/
+        cp firm_capacity_analysis/tests/reference_data/Monktonhall/metadata.json firm_capacity_analysis/output/Monktonhall/
+        cp firm_capacity_analysis/tests/reference_data/Monktonhall/firm_capacity_results.csv firm_capacity_analysis/output/Monktonhall/
+        
+        # Create pytest.ini for test discovery if it doesn't exist
+        if [ ! -f firm_capacity_analysis/pytest.ini ]; then
           echo '[pytest]' > firm_capacity_analysis/pytest.ini
           echo 'python_files = test_*.py' >> firm_capacity_analysis/pytest.ini
           echo 'testpaths = tests' >> firm_capacity_analysis/pytest.ini
           echo 'python_classes = *Test' >> firm_capacity_analysis/pytest.ini
           echo 'python_functions = test_*' >> firm_capacity_analysis/pytest.ini
-          
-          echo "Reference dataset creation complete!"
-        else
-          echo "Reference datasets already exist."
         fi
         
     - name: Run tests

@@ -25,3 +25,7 @@ Thumbs.db
 *.log
 
 venv/
+data/samples/network-flow-dataset-power-current-and-embedded-generation-monktonhall.xlsx
+data/samples/monktonhall.csv
+data/raw/network-flow-dataset-power-current-and-embedded-generation.parquet
+data/raw/monktonhall.parquet
