@@ -32,3 +32,8 @@ data/raw/monktonhall.parquet
 
 # MkDocs documentation build
 site/
+
+# App build
+build/
+dist/
+FlexibilityAnalysisSystem.spec

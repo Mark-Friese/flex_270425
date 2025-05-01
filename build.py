@@ -9,6 +9,8 @@ import sys
 import shutil
 import platform
 from pathlib import Path
+import PyInstaller.__main__
+import subprocess
 
 def clean_build_directories():
     """Clean previous build directories"""
@@ -23,40 +25,54 @@ def build_application():
     """Build the application using PyInstaller"""
     # Determine platform-specific options
     is_windows = platform.system() == 'Windows'
-    
-    # Base command
+    separator = ';' if is_windows else ':' # Use correct separator for --add-data
+
+    # Base command list - remove the initial 'pyinstaller' element
     cmd = [
-        'pyinstaller',
-        '--name=FlexibilityAnalysisSystem',
-        '--add-data=ui{0}ui'.format(os.pathsep),
-        '--add-data=config.yaml{0}.'.format(os.pathsep),
-        '--add-data=config_with_competitions.yaml{0}.'.format(os.pathsep),
-        '--hidden-import=pandas',
-        '--hidden-import=numpy',
-        '--hidden-import=matplotlib',
-        '--hidden-import=matplotlib.backends.backend_agg',
-        '--hidden-import=yaml',
+        # 'pyinstaller',  <--- REMOVE THIS LINE
+        '--name', 'FlexibilityAnalysisSystem',
+        '--add-data', f'ui{separator}ui',
+        '--add-data', f'config.yaml{separator}.',
+        '--add-data', f'config_with_competitions.yaml{separator}.',
+        '--hidden-import', 'pandas',
+        '--hidden-import', 'numpy',
+        '--hidden-import', 'matplotlib',
+        '--hidden-import', 'matplotlib.backends.backend_agg',
+        '--hidden-import', 'yaml',
     ]
-    
+
     # Add platform-specific options
     if is_windows:
-        cmd.extend([
-            '--windowed',      # Don't show console window on Windows
-            '--icon=ui/favicon.ico' if Path('ui/favicon.ico').exists() else '',
-        ])
-    
-    # Specify the main script
+        cmd.append('--windowed')  # Add --windowed flag
+        icon_path = Path('ui/favicon.ico')
+        if icon_path.exists():
+            # Add icon flag and its value separately
+            cmd.extend(['--icon', str(icon_path)]) # Ensure path is a string
+
+    # Specify the main script - THIS MUST BE THE LAST ARGUMENT (after options)
     cmd.append('app.py')
-    
-    # Filter out empty strings
-    cmd = [c for c in cmd if c]
-    
-    # Print the command
-    print("Running PyInstaller with:", ' '.join(cmd))
-    
+
+    # Print the command (optional, for debugging)
+    # Note: list2cmdline will now look like it's missing 'pyinstaller',
+    # but this might be the correct format for the run() function.
+    # It's often better to just print the list itself for debugging run():
+    print("Arguments being passed to PyInstaller.run():", cmd)
+    # print("Equivalent command line:", subprocess.list2cmdline(['pyinstaller'] + cmd)) # If you want to see the command line equivalent
+
     # Execute the command
-    import PyInstaller.__main__
     PyInstaller.__main__.run(cmd)
+
+    # No need to filter empty strings now as we construct carefully
+    # cmd = [c for c in cmd if c] # Remove or comment out this line
+
+    # Print the command (optional, for debugging)
+    # Use a method that handles spaces in arguments if printing:
+    import subprocess
+    print("Running PyInstaller with:", subprocess.list2cmdline(cmd))
+
+    # Execute the command
+    PyInstaller.__main__.run(cmd)
+    
 
 def post_build_processing():
     """Perform post-build actions"""
