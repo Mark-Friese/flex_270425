@@ -39,9 +39,11 @@ nav:
     - CI/CD Integration: development/ci-cd.md
     - Contributing: development/contribution.md
   - Reference:
+    - Overview: reference/index.md
     - API Reference: reference/api-reference.md
     - Configuration Reference: reference/configuration-reference.md
     - Glossary: reference/glossary.md
+    - FAQ: reference/faq.md
 
 # Extensions
 markdown_extensions:
