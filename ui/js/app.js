@@ -29,6 +29,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Map instance
     let map = null;
+    let mapLayers = {};
+    let layerControls = null;
+    let substationCoordinates = null;
     
     // Current results state
     let currentSubstation = null;
@@ -40,6 +43,11 @@ document.addEventListener('DOMContentLoaded', function() {
     viewLogsBtn.addEventListener('click', handleViewLogs);
     analysisForm.addEventListener('submit', handleRunAnalysis);
     substationSelect.addEventListener('change', handleSubstationChange);
+    
+    // Add event listeners for map data import/export if the elements exist
+    document.getElementById('mapDataFile')?.addEventListener('change', () => {
+        document.getElementById('importStatus').style.display = 'none';
+    });
     
     // Tab change listeners for map initialization
     document.getElementById('map-tab').addEventListener('shown.bs.tab', function() {
@@ -61,9 +69,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateConfigStatus(true);
                 populateSubstations(await window.pywebview.api.get_substations());
                 loadPreviousResults();
+                
+                // Try to load substation coordinates
+                loadMapData();
             } else {
                 updateConfigStatus(false);
             }
+            
+            // Add event listener for map tab to ensure map loads correctly
+            document.querySelector('#resultsTabs button[data-bs-target="#map"]').addEventListener('shown.bs.tab', function() {
+                if (map) {
+                    map.invalidateSize();
+                    
+                    // If we have current results and coordinates were loaded after map initialization,
+                    // update the map with real coordinates
+                    if (currentResults && substationCoordinates) {
+                        updateMap(currentResults);
+                    }
+                } else {
+                    initMap();
+                }
+                
+                // Update map data status
+                updateMapDataStatus();
+            });
         } catch (error) {
             console.error('Error initializing app:', error);
             updateConfigStatus(false);
@@ -796,11 +825,87 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     /**
+     * Load substation coordinates and demand group data from the JSON file
+     */
+    async function loadMapData() {
+        try {
+            const response = await fetch('assets/substation_coordinates.json');
+            if (!response.ok) {
+                throw new Error(`Failed to load map data: ${response.status}`);
+            }
+            
+            substationCoordinates = await response.json();
+            console.log(`Loaded data for ${substationCoordinates.substations.length} substations and ${substationCoordinates.demand_groups?.length || 0} demand groups`);
+            
+            // Return the data in case it's needed directly
+            return substationCoordinates;
+        } catch (error) {
+            console.error('Error loading map data:', error);
+            setStatus(`Warning: Could not load substation and demand group data. Map will use approximate locations.`, 'warning');
+            
+            // Return null to indicate failure
+            return null;
+        }
+    }
+
+    /**
+     * Get coordinates for a specific substation
+     * 
+     * @param {string} substationName - The name of the substation
+     * @returns {Object|null} - Object with lat/lng and metadata or null if not found
+     */
+    function getSubstationData(substationName) {
+        if (!substationCoordinates || !substationCoordinates.substations) {
+            return null;
+        }
+        
+        // Try to find a case-insensitive match
+        const normalizedName = substationName.toLowerCase().trim();
+        return substationCoordinates.substations.find(s => 
+            s.name.toLowerCase() === normalizedName
+        );
+    }
+
+    /**
+     * Get demand group data for a given group ID
+     * 
+     * @param {string} groupId - The ID of the demand group
+     * @returns {Object|null} - Demand group data or null if not found
+     */
+    function getDemandGroupData(groupId) {
+        if (!substationCoordinates || !substationCoordinates.demand_groups) {
+            return null;
+        }
+        
+        return substationCoordinates.demand_groups.find(g => g.id === groupId);
+    }
+
+    /**
+     * Get demand group data that contains a specific substation
+     * 
+     * @param {string} substationName - The name of the substation
+     * @returns {Object|null} - Demand group data or null if not found
+     */
+    function getDemandGroupForSubstation(substationName) {
+        if (!substationCoordinates || !substationCoordinates.demand_groups) {
+            return null;
+        }
+        
+        const normalizedName = substationName.toLowerCase().trim();
+        
+        return substationCoordinates.demand_groups.find(group => 
+            group.metadata && 
+            group.metadata.substations && 
+            group.metadata.substations.some(sub => sub.toLowerCase() === normalizedName)
+        );
+    }
+    
+    /**
      * Initialize or update the map
      */
     function initMap() {
         if (map) {
-            // Map already initialized, just update
+            // Map already initialized, just update the data
             if (currentResults) {
                 updateMap(currentResults);
             }
@@ -810,31 +915,66 @@ document.addEventListener('DOMContentLoaded', function() {
         // Clear container
         mapContainer.innerHTML = '';
         
-        // Initialize map
-        map = L.map(mapContainer).setView([55.378, -3.436], 6); // Center on UK
+        // Initialize map - use defaults from config or fallback to UK center
+        const mapDefaults = substationCoordinates?.map_defaults || {
+            center: { lat: 55.378, lng: -3.436 },
+            zoom: 6,
+            max_zoom: 18,
+            min_zoom: 5
+        };
+        
+        map = L.map(mapContainer, {
+            center: [mapDefaults.center.lat, mapDefaults.center.lng],
+            zoom: mapDefaults.zoom,
+            maxZoom: mapDefaults.max_zoom,
+            minZoom: mapDefaults.min_zoom
+        });
         
         // Add OpenStreetMap tile layer
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
         
+        // Add map controls
+        L.control.scale().addTo(map);
+        
+        // Initialize layer groups
+        mapLayers = {
+            substations: L.layerGroup().addTo(map),
+            demandGroups: L.layerGroup().addTo(map),
+            highlightedSubstation: L.layerGroup().addTo(map),
+            highlightedGroup: L.layerGroup().addTo(map)
+        };
+        
+        // Add layer controls if we have layer definitions
+        if (substationCoordinates && substationCoordinates.layers) {
+            const overlayMaps = {};
+            
+            substationCoordinates.layers.forEach(layer => {
+                if (layer.id === 'substations') {
+                    overlayMaps['Substations'] = mapLayers.substations;
+                } else if (layer.id === 'demand_groups') {
+                    overlayMaps['Demand Groups'] = mapLayers.demandGroups;
+                }
+                
+                // Set initial visibility
+                if (!layer.visible) {
+                    map.removeLayer(mapLayers[layer.id === 'substations' ? 'substations' : 'demandGroups']);
+                }
+            });
+            
+            layerControls = L.control.layers(null, overlayMaps).addTo(map);
+        }
+        
+        // Add custom control for legend
+        addMapLegend();
+        
+        // Load all substations and demand groups
+        renderAllMapData();
+        
         // Update with current results if available
         if (currentResults) {
-            updateMap(currentResults);
-        } else {
-            // Add placeholder content if no results
-            mapContainer.innerHTML = `
-                <div class="alert alert-info position-absolute" style="z-index: 1000; top: 10px; left: 10px; right: 10px;">
-                    <i class="fas fa-info-circle me-2"></i>No data to display on map. Please run an analysis first.
-                </div>
-                <div id="map-placeholder" style="height: 100%; width: 100%;"></div>
-            `;
-            
-            // Initialize placeholder map
-            const placeholderMap = L.map('map-placeholder').setView([55.378, -3.436], 6);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(placeholderMap);
+            highlightSelectedSubstation(currentResults.results.substation);
         }
         
         // Force a resize to ensure the map renders correctly
@@ -844,37 +984,216 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }, 100);
     }
+
+    /**
+     * Render all substations and demand groups on the map
+     */
+    function renderAllMapData() {
+        if (!map || !substationCoordinates) return;
+        
+        // Clear existing layers
+        mapLayers.substations.clearLayers();
+        mapLayers.demandGroups.clearLayers();
+        
+        // Add demand group polygons first (so they're under substations)
+        if (substationCoordinates.demand_groups) {
+            substationCoordinates.demand_groups.forEach(group => {
+                if (!group.polygon || !group.polygon.points || group.polygon.points.length < 3) return;
+                
+                const polygon = L.polygon(group.polygon.points, {
+                    color: group.polygon.color || '#00A443',
+                    fillColor: group.polygon.fillColor || '#00A44333',
+                    fillOpacity: 0.2,
+                    weight: group.polygon.weight || 2
+                });
+                
+                // Create popup content for demand group
+                let popupContent = `
+                    <div class="map-popup">
+                        <h5>${group.name}</h5>
+                        <div><strong>Firm Capacity:</strong> ${formatNumber(group.metadata.firm_capacity_mw)} MW</div>
+                        <div><strong>Energy Above Capacity:</strong> ${formatNumber(group.metadata.energy_above_capacity_mwh)} MWh</div>
+                        <div><strong>Substations:</strong> ${group.metadata.substation_count}</div>
+                    </div>
+                `;
+                
+                // Add list of substations if available
+                if (group.metadata.substations && group.metadata.substations.length > 0) {
+                    popupContent += '<div class="mt-2"><strong>Included Substations:</strong><ul>';
+                    
+                    group.metadata.substations.forEach(subName => {
+                        // Find the substation to get its display name
+                        const sub = substationCoordinates.substations.find(s => s.name === subName);
+                        const displayName = sub ? sub.display_name : subName;
+                        
+                        popupContent += `<li>${displayName}</li>`;
+                    });
+                    
+                    popupContent += '</ul></div>';
+                }
+                
+                polygon.bindPopup(popupContent);
+                
+                // Add mouseover/mouseout effects
+                polygon.on('mouseover', function(e) {
+                    this.setStyle({ 
+                        fillOpacity: 0.4,
+                        weight: 3
+                    });
+                });
+                
+                polygon.on('mouseout', function(e) {
+                    this.setStyle({ 
+                        fillOpacity: 0.2,
+                        weight: group.polygon.weight || 2
+                    });
+                });
+                
+                // Add to demand groups layer
+                mapLayers.demandGroups.addLayer(polygon);
+            });
+        }
+        
+        // Add substations
+        if (substationCoordinates.substations) {
+            substationCoordinates.substations.forEach(substation => {
+                if (!substation.coordinates) return;
+                
+                // Determine marker icon
+                const markerIcon = L.divIcon({
+                    className: 'custom-div-icon',
+                    html: `<div style="background-color: ${substation.icon?.color || '#00A443'}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;"></div>`,
+                    iconSize: [14, 14],
+                    iconAnchor: [7, 7]
+                });
+                
+                const marker = L.marker([substation.coordinates.lat, substation.coordinates.lng], {
+                    icon: markerIcon,
+                    title: substation.display_name
+                });
+                
+                // Create popup content
+                let popupContent = `
+                    <div class="map-popup">
+                        <h5>${substation.display_name}</h5>
+                        <div><strong>Voltage Level:</strong> ${substation.metadata.voltage_level || 'N/A'}</div>
+                        <div><strong>Capacity:</strong> ${formatNumber(substation.metadata.capacity_mw)} MW</div>
+                        <div><strong>Region:</strong> ${substation.metadata.region || 'N/A'}</div>
+                    </div>
+                `;
+                
+                // Add demand group info if available
+                if (substation.metadata.demand_group) {
+                    const group = getDemandGroupData(substation.metadata.demand_group);
+                    if (group) {
+                        popupContent += `<div class="mt-2"><strong>Demand Group:</strong> ${group.name}</div>`;
+                    }
+                }
+                
+                marker.bindPopup(popupContent);
+                
+                // Add click handler to select this substation
+                marker.on('click', function() {
+                    // Check if this substation exists in the substationSelect dropdown
+                    const option = Array.from(substationSelect.options).find(opt => 
+                        opt.value.toLowerCase() === substation.name.toLowerCase()
+                    );
+                    
+                    if (option) {
+                        substationSelect.value = option.value;
+                        handleSubstationChange();
+                    }
+                });
+                
+                // Add to substations layer
+                mapLayers.substations.addLayer(marker);
+            });
+        }
+    }
+
+    /**
+     * Highlight a specific substation and its demand group
+     */
+    function highlightSelectedSubstation(substationName) {
+        if (!map) return;
+        
+        // Clear previous highlights
+        mapLayers.highlightedSubstation.clearLayers();
+        mapLayers.highlightedGroup.clearLayers();
+        
+        // Get substation data
+        const substation = getSubstationData(substationName);
+        if (!substation) return;
+        
+        // Add highlight circle for the substation
+        const highlightCircle = L.circle([substation.coordinates.lat, substation.coordinates.lng], {
+            color: '#FF9C1A',
+            fillColor: '#FF9C1A',
+            fillOpacity: 0.3,
+            weight: 2,
+            radius: 300 // Fixed size for visibility
+        });
+        
+        mapLayers.highlightedSubstation.addLayer(highlightCircle);
+        
+        // Highlight associated demand group if it exists
+        const demandGroup = getDemandGroupForSubstation(substationName);
+        if (demandGroup && demandGroup.polygon && demandGroup.polygon.points) {
+            const highlightPolygon = L.polygon(demandGroup.polygon.points, {
+                color: '#FF9C1A',
+                fillColor: '#FF9C1A33',
+                fillOpacity: 0.3,
+                weight: 3,
+                dashArray: '5, 5' // Dashed line for highlight
+            });
+            
+            mapLayers.highlightedGroup.addLayer(highlightPolygon);
+        }
+        
+        // Pan to the substation
+        map.setView([substation.coordinates.lat, substation.coordinates.lng], 12);
+    }
     
     /**
-     * Update map with results data
+     * Update map with results data for a specific substation
      */
     function updateMap(results) {
         if (!map) return;
         
-        // Clear existing markers and layers
-        map.eachLayer(layer => {
-            if (layer instanceof L.Marker || layer instanceof L.Circle) {
-                map.removeLayer(layer);
-            }
+        // First, render all map data if it hasn't been done yet
+        if (mapLayers.substations.getLayers().length === 0) {
+            renderAllMapData();
+        }
+        
+        const substationName = results.results.substation;
+        
+        // Highlight the selected substation
+        highlightSelectedSubstation(substationName);
+        
+        // Get substation data
+        const substation = getSubstationData(substationName);
+        if (!substation) return;
+        
+        // Create a results circle to show capacity
+        mapLayers.highlightedSubstation.clearLayers();
+        
+        // Add results circle
+        const resultsCircle = L.circle([substation.coordinates.lat, substation.coordinates.lng], {
+            color: '#FF9C1A',
+            fillColor: '#FF9C1A80',
+            fillOpacity: 0.3,
+            weight: 2,
+            radius: results.results.C_peak_MW * 500 // Scale for visualization
         });
-        
-        const substation = results.results.substation;
-        
-        // In a real implementation, you'd use actual coordinates from your data
-        // This is just a placeholder using random coordinates near the UK
-        const lat = 55.378 + (Math.random() - 0.5) * 2;
-        const lng = -3.436 + (Math.random() - 0.5) * 2;
-        
-        // Add marker
-        const marker = L.marker([lat, lng]).addTo(map);
         
         // Create popup content
         let popupContent = `
             <div class="map-popup">
-                <h5>${substation}</h5>
+                <h5>${substation.display_name}</h5>
                 <div><strong>Firm Capacity:</strong> ${formatNumber(results.results.C_peak_MW)} MW</div>
                 <div><strong>Max Demand:</strong> ${formatNumber(results.results.max_demand_MW)} MW</div>
                 <div><strong>Energy Above Capacity:</strong> ${formatNumber(results.results.energy_above_capacity_MWh)} MWh</div>
+                <div><strong>Voltage Level:</strong> ${substation.metadata.voltage_level || 'N/A'}</div>
             </div>
         `;
         
@@ -882,18 +1201,572 @@ document.addEventListener('DOMContentLoaded', function() {
             popupContent += `<div class="mt-2"><strong>Competitions:</strong> ${results.competitions.length}</div>`;
         }
         
-        marker.bindPopup(popupContent);
+        resultsCircle.bindPopup(popupContent);
+        mapLayers.highlightedSubstation.addLayer(resultsCircle);
+    }
+
+    /**
+     * Add a custom legend to the map
+     */
+    function addMapLegend() {
+        if (!map) return;
         
-        // Add circle to represent capacity
-        const circle = L.circle([lat, lng], {
-            color: 'red',
-            fillColor: '#f03',
-            fillOpacity: 0.2,
-            radius: results.results.C_peak_MW * 500 // Scale for visualization
-        }).addTo(map);
+        // Create a custom control for the legend
+        const legend = L.control({position: 'bottomright'});
         
-        // Center map on marker
-        map.setView([lat, lng], 10);
+        legend.onAdd = function (map) {
+            const div = L.DomUtil.create('div', 'info legend');
+            div.style.backgroundColor = 'white';
+            div.style.padding = '10px';
+            div.style.borderRadius = '4px';
+            div.style.boxShadow = '0 1px 5px rgba(0,0,0,0.4)';
+            
+            div.innerHTML = `
+                <h6 style="margin-top: 0; margin-bottom: 8px; color: #00402A;">Legend</h6>
+                <div style="margin-bottom: 5px;">
+                    <div style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background-color: #00A443; border: 2px solid white; vertical-align: middle;"></div>
+                    <span style="margin-left: 5px; vertical-align: middle;">Primary Substation</span>
+                </div>
+                <div style="margin-bottom: 5px;">
+                    <div style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background-color: #0DA9FF; border: 2px solid white; vertical-align: middle;"></div>
+                    <span style="margin-left: 5px; vertical-align: middle;">Secondary Substation</span>
+                </div>
+                <div style="margin-bottom: 5px;">
+                    <div style="display: inline-block; width: 16px; height: 6px; background-color: #00A443; vertical-align: middle;"></div>
+                    <span style="margin-left: 5px; vertical-align: middle;">Demand Group</span>
+                </div>
+                <div>
+                    <div style="display: inline-block; width: 16px; height: 6px; background-color: #FF9C1A; vertical-align: middle;"></div>
+                    <span style="margin-left: 5px; vertical-align: middle;">Selected Item</span>
+                </div>
+            `;
+            return div;
+        };
+        
+        legend.addTo(map);
+    }
+    
+    /**
+     * Update map data status display
+     */
+    /**
+     * Show the data import modal
+     */
+    function showDataImportModal() {
+        const dataImportModal = new bootstrap.Modal(document.getElementById('dataImportModal'));
+        dataImportModal.show();
+        
+        // Reset any previous status message
+        const importStatus = document.getElementById('importStatus');
+        if (importStatus) {
+            importStatus.style.display = 'none';
+        }
+    }
+
+    /**
+     * Handle JSON file import for substation and demand group data
+     */
+    async function handleMapDataImport() {
+        const fileInput = document.getElementById('mapDataFile');
+        const importStatus = document.getElementById('importStatus');
+        
+        if (!fileInput || fileInput.files.length === 0) {
+            importStatus.className = 'alert alert-warning';
+            importStatus.textContent = 'Please select a file to import.';
+            importStatus.style.display = 'block';
+            return;
+        }
+        
+        const file = fileInput.files[0];
+        
+        // Check file extension
+        if (!file.name.toLowerCase().endsWith('.json')) {
+            importStatus.className = 'alert alert-danger';
+            importStatus.textContent = 'Only JSON files are supported.';
+            importStatus.style.display = 'block';
+            return;
+        }
+        
+        try {
+            // Read the file
+            const fileContent = await readFileAsText(file);
+            let mapData;
+            
+            try {
+                // Parse JSON
+                mapData = JSON.parse(fileContent);
+            } catch (error) {
+                importStatus.className = 'alert alert-danger';
+                importStatus.textContent = 'Invalid JSON file: ' + error.message;
+                importStatus.style.display = 'block';
+                return;
+            }
+            
+            // Basic validation
+            if (!mapData.substations || !Array.isArray(mapData.substations)) {
+                importStatus.className = 'alert alert-danger';
+                importStatus.textContent = 'Invalid data format: Missing substations array.';
+                importStatus.style.display = 'block';
+                return;
+            }
+            
+            // Validate data schema
+            const validationResult = validateMapData(mapData);
+            if (!validationResult.valid) {
+                importStatus.className = 'alert alert-danger';
+                importStatus.textContent = 'Invalid data: ' + validationResult.error;
+                importStatus.style.display = 'block';
+                return;
+            }
+            
+            // Update the local data
+            substationCoordinates = mapData;
+            
+            // Update the map
+            if (map) {
+                renderAllMapData();
+                if (currentResults) {
+                    updateMap(currentResults);
+                }
+            }
+            
+            importStatus.className = 'alert alert-success';
+            importStatus.textContent = 'Map data imported successfully.';
+            importStatus.style.display = 'block';
+            
+            // Close modal after a delay
+            setTimeout(() => {
+                try {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('dataImportModal'));
+                    if (modal) modal.hide();
+                } catch (e) {
+                    console.error('Error closing modal:', e);
+                }
+            }, 1500);
+            
+            // Update the map data status
+            updateMapDataStatus();
+        } catch (error) {
+            importStatus.className = 'alert alert-danger';
+            importStatus.textContent = 'Error reading file: ' + error.message;
+            importStatus.style.display = 'block';
+        }
+    }
+
+    /**
+     * Read a file as text
+     * 
+     * @param {File} file - The file to read
+     * @returns {Promise<string>} - The file contents as text
+     */
+    function readFileAsText(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = event => resolve(event.target.result);
+            reader.onerror = error => reject(error);
+            reader.readAsText(file);
+        });
+    }
+
+    /**
+     * Validate map data structure
+     * 
+     * @param {Object} data - The map data to validate
+     * @returns {Object} - Validation result {valid: boolean, error: string}
+     */
+    function validateMapData(data) {
+        // Check if substations is an array
+        if (!Array.isArray(data.substations)) {
+            return { valid: false, error: 'Substations must be an array' };
+        }
+        
+        // Check each substation
+        for (const sub of data.substations) {
+            if (!sub.name) {
+                return { valid: false, error: 'Each substation must have a name' };
+            }
+            
+            if (!sub.coordinates || typeof sub.coordinates.lat !== 'number' || typeof sub.coordinates.lng !== 'number') {
+                return { valid: false, error: `Substation ${sub.name} has invalid coordinates` };
+            }
+        }
+        
+        // Check demand groups if present
+        if (data.demand_groups) {
+            if (!Array.isArray(data.demand_groups)) {
+                return { valid: false, error: 'Demand groups must be an array' };
+            }
+            
+            for (const group of data.demand_groups) {
+                if (!group.id || !group.name) {
+                    return { valid: false, error: 'Each demand group must have an id and name' };
+                }
+                
+                if (!group.polygon || !Array.isArray(group.polygon.points) || group.polygon.points.length < 3) {
+                    return { valid: false, error: `Demand group ${group.name} has invalid polygon data` };
+                }
+            }
+        }
+        
+        return { valid: true };
+    }
+
+    /**
+     * Export current map data to a JSON file
+     */
+    function exportMapData() {
+        if (!substationCoordinates) {
+            setStatus('No map data available to export.', 'warning');
+            return;
+        }
+        
+        try {
+            // Create JSON content
+            const jsonContent = JSON.stringify(substationCoordinates, null, 2);
+            
+            // Create blob
+            const blob = new Blob([jsonContent], { type: 'application/json' });
+            
+            // Create download link
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'substation_coordinates.json';
+            
+            // Trigger download
+            document.body.appendChild(a);
+            a.click();
+            
+            // Cleanup
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+            
+            setStatus('Map data exported successfully.', 'success');
+        } catch (error) {
+            console.error('Error exporting map data:', error);
+            setStatus('Error exporting map data: ' + error.message, 'danger');
+        }
+    }
+
+    /**
+     * Auto-generate map data based on current substations
+     */
+    function autoGenerateMapData() {
+        if (!confirm("This will generate temporary coordinates for all substations in your configuration. Continue?")) {
+            return;
+        }
+        
+        const statusDiv = document.getElementById('mapDataStatus');
+        if (statusDiv) {
+            statusDiv.innerHTML = `
+                <div class="alert alert-info">
+                    <div class="d-flex align-items-center">
+                        <div class="spinner-border spinner-border-sm me-2" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <div>Generating map data...</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Get all substations from the dropdown
+        const substations = Array.from(substationSelect.options)
+            .filter(opt => opt.value)
+            .map(opt => ({
+                name: opt.value,
+                display_name: opt.textContent,
+            }));
+        
+        // Create a basic map data structure
+        const mapData = {
+            substations: [],
+            demand_groups: [],
+            layers: [
+                {
+                    id: "substations",
+                    name: "Substations",
+                    type: "marker",
+                    visible: true,
+                    source: "substations"
+                },
+                {
+                    id: "demand_groups",
+                    name: "Demand Groups",
+                    type: "polygon",
+                    visible: true,
+                    source: "demand_groups"
+                }
+            ],
+            map_defaults: {
+                center: { lat: 55.378, lng: -3.436 },
+                zoom: 6,
+                max_zoom: 18,
+                min_zoom: 5
+            }
+        };
+        
+        // Generate coordinates for each substation
+        const baseLatLng = { lat: 55.378, lng: -3.436 }; // Center of UK
+        const groups = {};
+        
+        substations.forEach((substation, index) => {
+            // Determine group - assign substations to groups of 3
+            const groupIndex = Math.floor(index / 3);
+            const groupId = `auto_group_${groupIndex}`;
+            
+            // Generate coordinates in a circle around the base point
+            const angle = (index / substations.length) * 2 * Math.PI;
+            const radius = 0.3 + (groupIndex * 0.15); // Different radius for each group
+            
+            const lat = baseLatLng.lat + (radius * Math.cos(angle));
+            const lng = baseLatLng.lng + (radius * Math.sin(angle));
+            
+            // Create substation entry
+            mapData.substations.push({
+                name: substation.name,
+                display_name: substation.display_name,
+                coordinates: { lat, lng },
+                metadata: {
+                    voltage_level: "33/11kV",
+                    region: `Region ${groupIndex + 1}`,
+                    capacity_mw: 30 + (index % 5) * 5, // Random capacity between 30-50 MW
+                    transformer_count: 1 + (index % 3),
+                    demand_group: groupId
+                },
+                icon: {
+                    color: index % 2 === 0 ? "#00A443" : "#0DA9FF", // Alternate colors
+                    size: "medium"
+                }
+            });
+            
+            // Track substations in groups
+            if (!groups[groupId]) {
+                groups[groupId] = {
+                    name: `Auto Group ${groupIndex + 1}`,
+                    substations: [],
+                    center: { lat: 0, lng: 0 }
+                };
+            }
+            
+            groups[groupId].substations.push(substation.name);
+            groups[groupId].center.lat += lat;
+            groups[groupId].center.lng += lng;
+        });
+        
+        // Create demand groups
+        Object.entries(groups).forEach(([groupId, group]) => {
+            const subCount = group.substations.length;
+            if (subCount === 0) return;
+            
+            // Calculate center
+            const centerLat = group.center.lat / subCount;
+            const centerLng = group.center.lng / subCount;
+            
+            // Create polygon points (hexagon)
+            const polygonPoints = [];
+            const polygonSize = 0.15 + (subCount * 0.02);
+            
+            for (let i = 0; i < 6; i++) {
+                const angle = (i / 6) * 2 * Math.PI;
+                polygonPoints.push({
+                    lat: centerLat + polygonSize * Math.cos(angle),
+                    lng: centerLng + polygonSize * Math.sin(angle)
+                });
+            }
+            
+            // Add closing point
+            polygonPoints.push(polygonPoints[0]);
+            
+            // Add to demand groups
+            mapData.demand_groups.push({
+                id: groupId,
+                name: group.name,
+                polygon: {
+                    color: "#00A443",
+                    fillColor: "#00A44333",
+                    weight: 2,
+                    points: polygonPoints
+                },
+                metadata: {
+                    firm_capacity_mw: 30 * subCount,
+                    total_energy_mwh: 800 * subCount,
+                    energy_above_capacity_mwh: 20 * subCount,
+                    substation_count: subCount,
+                    substations: group.substations,
+                    peak_demand_time: "2025-01-15T18:30:00Z"
+                }
+            });
+        });
+        
+        // Update the map data
+        substationCoordinates = mapData;
+        
+        // Update the map if it exists
+        if (map) {
+            renderAllMapData();
+            if (currentResults) {
+                updateMap(currentResults);
+            }
+        }
+        
+        // Update status
+        updateMapDataStatus();
+        
+        setStatus(`Auto-generated map data for ${mapData.substations.length} substations in ${mapData.demand_groups.length} groups.`, 'success');
+    }
+    
+    function updateMapDataStatus() {
+        const statusDiv = document.getElementById('mapDataStatus');
+        if (!statusDiv) return;
+        
+        // Check if we have configuration
+        if (!window.pywebview || !window.pywebview.api) {
+            statusDiv.innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    API not initialized. Please refresh the page.
+                </div>
+            `;
+            return;
+        }
+        
+        if (!substationCoordinates) {
+            statusDiv.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No map data loaded. Click the Auto-Generate button to create temporary coordinates.
+                </div>
+            `;
+            return;
+        }
+        
+        // Check if we have substations in the configuration
+        if (!substationSelect || substationSelect.options.length <= 1) {
+            statusDiv.innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    No substations found in configuration.
+                </div>
+            `;
+            return;
+        }
+        
+        // Count matched and unmatched substations
+        const configSubstations = Array.from(substationSelect.options)
+            .filter(opt => opt.value)
+            .map(opt => opt.value);
+            
+        const matchedSubstations = [];
+        const unmatchedSubstations = [];
+        
+        configSubstations.forEach(subName => {
+            const sub = getSubstationData(subName);
+            if (sub) {
+                matchedSubstations.push(subName);
+            } else {
+                unmatchedSubstations.push(subName);
+            }
+        });
+        
+        // Calculate match percentage
+        const total = configSubstations.length;
+        const matchPercent = total > 0 ? Math.round((matchedSubstations.length / total) * 100) : 0;
+        
+        let statusHtml = `
+            <div class="mb-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <div>Substation Match Rate:</div>
+                    <div><strong>${matchPercent}%</strong> (${matchedSubstations.length}/${total})</div>
+                </div>
+                <div class="progress" style="height: 10px;">
+                    <div class="progress-bar ${matchPercent >= 75 ? 'bg-success' : matchPercent >= 50 ? 'bg-warning' : 'bg-danger'}" 
+                         role="progressbar" 
+                         style="width: ${matchPercent}%;" 
+                         aria-valuenow="${matchPercent}" 
+                         aria-valuemin="0" 
+                         aria-valuemax="100"></div>
+                </div>
+            </div>
+        `;
+        
+        // Add matched substations
+        if (matchedSubstations.length > 0) {
+            statusHtml += `
+                <div class="mb-3">
+                    <h6>Matched Substations</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Substation</th>
+                                    <th>Coordinates</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+            
+            matchedSubstations.slice(0, 5).forEach(subName => {
+                const sub = getSubstationData(subName);
+                statusHtml += `
+                    <tr>
+                        <td>${sub.display_name || subName}</td>
+                        <td>${sub.coordinates.lat.toFixed(4)}, ${sub.coordinates.lng.toFixed(4)}</td>
+                    </tr>
+                `;
+            });
+            
+            if (matchedSubstations.length > 5) {
+                statusHtml += `
+                    <tr>
+                        <td colspan="2" class="text-center">
+                            <em>...and ${matchedSubstations.length - 5} more</em>
+                        </td>
+                    </tr>
+                `;
+            }
+            
+            statusHtml += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Add unmatched substations
+        if (unmatchedSubstations.length > 0) {
+            statusHtml += `
+                <div>
+                    <h6>Unmatched Substations</h6>
+                    <div class="alert alert-warning">
+                        <p class="mb-1">The following substations don't have coordinates:</p>
+                        <div style="max-height: 100px; overflow-y: auto;">
+                            ${unmatchedSubstations.join(', ')}
+                        </div>
+                        <p class="mt-2 mb-0">
+                            Click <a href="#" onclick="autoGenerateMapData(); return false;">Auto-Generate</a> 
+                            to create temporary coordinates for these substations.
+                        </p>
+                    </div>
+                </div>
+            `;
+        } else if (total > 0) {
+            statusHtml += `
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle me-2"></i>
+                    All substations have coordinates mapped!
+                </div>
+            `;
+        } else {
+            statusHtml += `
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No substations found in the current configuration.
+                </div>
+            `;
+        }
+        
+        statusDiv.innerHTML = statusHtml;
     }
     
     /**

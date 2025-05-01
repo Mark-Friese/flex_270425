@@ -13,6 +13,7 @@ import sys
 import pandas as pd
 import numpy as np
 import traceback
+import math
 from pathlib import Path
 from datetime import datetime
 
@@ -56,6 +57,11 @@ class FlexibilityAnalysisAPI:
         self.base_dir = Path(__file__).resolve().parent
         self.default_config_path = self.base_dir / "config.yaml"
         self.output_dir = self.base_dir / "output"
+        
+        # Ensure assets directory exists
+        self.assets_dir = self.base_dir / "ui" / "assets"
+        if not self.assets_dir.exists():
+            self.assets_dir.mkdir(parents=True, exist_ok=True)
         
     def select_config_file(self):
         """Open a file dialog to select a configuration file"""
@@ -288,6 +294,250 @@ class FlexibilityAnalysisAPI:
             error_details = traceback.format_exc()
             logger.error(f"Error getting all results: {str(e)}\n{error_details}")
             return {"status": "error", "message": str(e), "details": error_details}
+    
+    def save_map_data(self, data):
+        """Save map data to the substation_coordinates.json file
+        
+        Args:
+            data (dict): Map data with substations and demand groups
+            
+        Returns:
+            dict: Result of the operation
+        """
+        try:
+            coords_path = self.assets_dir / "substation_coordinates.json"
+            
+            # Validate basic structure
+            required_keys = ["substations"]
+            for key in required_keys:
+                if key not in data:
+                    return {"status": "error", "message": f"Missing required key: {key}"}
+            
+            # Save data to file
+            with open(coords_path, "w") as f:
+                json.dump(data, f, indent=2)
+            
+            logger.info(f"Saved map data to {coords_path} with {len(data['substations'])} substations and {len(data.get('demand_groups', []))} demand groups")
+            return {"status": "success"}
+        except Exception as e:
+            logger.error(f"Error saving map data: {str(e)}")
+            return {"status": "error", "message": str(e)}
+    
+    def load_map_data(self):
+        """Load map data from the substation_coordinates.json file
+        
+        Returns:
+            dict: Map data or error message
+        """
+        try:
+            coords_path = self.assets_dir / "substation_coordinates.json"
+            
+            if not coords_path.exists():
+                logger.warning(f"Map data file not found at {coords_path}")
+                return {"status": "error", "message": "Map data file not found"}
+            
+            with open(coords_path, "r") as f:
+                data = json.load(f)
+            
+            logger.info(f"Loaded map data with {len(data['substations'])} substations and {len(data.get('demand_groups', []))} demand groups")
+            return {"status": "success", "data": data}
+        except Exception as e:
+            logger.error(f"Error loading map data: {str(e)}")
+            return {"status": "error", "message": str(e)}
+    
+    def match_substations_to_coordinates(self):
+        """Match substations in config with coordinates in the map data
+        
+        Returns:
+            dict: Mapping of matched and unmatched substations
+        """
+        try:
+            if not self.config:
+                return {"status": "error", "message": "No configuration loaded"}
+            
+            # Load map data
+            map_data_result = self.load_map_data()
+            if map_data_result["status"] != "success":
+                return map_data_result
+            
+            map_data = map_data_result["data"]
+            
+            # Get substations from config
+            config_substations = self.config.get("substations", [])
+            
+            # Match substations
+            matched = []
+            unmatched = []
+            
+            for sub in config_substations:
+                sub_name = sub["name"].lower()
+                
+                # Check if it exists in map data
+                map_sub = next((s for s in map_data["substations"] if s["name"].lower() == sub_name), None)
+                
+                if map_sub:
+                    matched.append({
+                        "name": sub["name"],
+                        "display_name": map_sub.get("display_name", sub["name"]),
+                        "coordinates": map_sub["coordinates"]
+                    })
+                else:
+                    unmatched.append(sub["name"])
+            
+            return {
+                "status": "success",
+                "matched": matched,
+                "unmatched": unmatched,
+                "match_percentage": len(matched) / len(config_substations) * 100 if config_substations else 0
+            }
+        except Exception as e:
+            logger.error(f"Error matching substations: {str(e)}")
+            return {"status": "error", "message": str(e)}
+    
+    def generate_default_map_data(self):
+        """Generate default map data based on current config
+        
+        Returns:
+            dict: Generated map data
+        """
+        try:
+            if not self.config:
+                return {"status": "error", "message": "No configuration loaded"}
+            
+            # Get substations from config
+            config_substations = self.config.get("substations", [])
+            
+            if not config_substations:
+                return {"status": "error", "message": "No substations in configuration"}
+            
+            # Create basic map data structure
+            map_data = {
+                "substations": [],
+                "demand_groups": [],
+                "layers": [
+                    {
+                        "id": "substations",
+                        "name": "Substations",
+                        "type": "marker",
+                        "visible": True,
+                        "source": "substations"
+                    },
+                    {
+                        "id": "demand_groups",
+                        "name": "Demand Groups",
+                        "type": "polygon",
+                        "visible": True,
+                        "source": "demand_groups"
+                    }
+                ],
+                "map_defaults": {
+                    "center": {
+                        "lat": 55.378,
+                        "lng": -3.436
+                    },
+                    "zoom": 6,
+                    "max_zoom": 18,
+                    "min_zoom": 5
+                }
+            }
+            
+            # Generate dummy coordinates for demonstration
+            # In a real application, these could be geocoded from address data
+            base_lat = 55.378
+            base_lng = -3.436
+            
+            for i, sub in enumerate(config_substations):
+                # Generate a somewhat distributed set of points
+                angle = (i / len(config_substations)) * 2 * math.pi  # Full circle distribution
+                distance = 0.5 + (i % 3) * 0.2  # Varying distances
+                
+                # Calculate coordinates using a simple offset pattern
+                lat = base_lat + distance * math.cos(angle)
+                lng = base_lng + distance * math.sin(angle)
+                
+                # Create substation entry
+                map_data["substations"].append({
+                    "name": sub["name"],
+                    "display_name": sub["name"].replace("_", " ").title(),
+                    "coordinates": {
+                        "lat": lat,
+                        "lng": lng
+                    },
+                    "metadata": {
+                        "voltage_level": "33/11kV",  # Default
+                        "region": "Default Region",
+                        "capacity_mw": 30.0,  # Default
+                        "demand_group": f"default_group_{i // 3}"  # Group every 3 substations
+                    },
+                    "icon": {
+                        "color": "#00A443",
+                        "size": "medium"
+                    }
+                })
+            
+            # Create demand groups
+            group_counts = {}
+            for sub in map_data["substations"]:
+                group_id = sub["metadata"]["demand_group"]
+                if group_id not in group_counts:
+                    group_counts[group_id] = {
+                        "count": 0,
+                        "substations": [],
+                        "center": {"lat": 0, "lng": 0}
+                    }
+                
+                group_counts[group_id]["count"] += 1
+                group_counts[group_id]["substations"].append(sub["name"])
+                group_counts[group_id]["center"]["lat"] += sub["coordinates"]["lat"]
+                group_counts[group_id]["center"]["lng"] += sub["coordinates"]["lng"]
+            
+            # Finalize demand groups
+            for group_id, data in group_counts.items():
+                # Calculate center
+                center_lat = data["center"]["lat"] / data["count"]
+                center_lng = data["center"]["lng"] / data["count"]
+                
+                # Create simple polygon around center
+                points = []
+                for i in range(6):  # Hexagon
+                    angle = (i / 6) * 2 * math.pi
+                    # Size based on number of substations
+                    size = 0.1 + (data["count"] * 0.05)
+                    point_lat = center_lat + size * math.cos(angle)
+                    point_lng = center_lng + size * math.sin(angle)
+                    points.append({"lat": point_lat, "lng": point_lng})
+                
+                # Add closing point
+                points.append(points[0])
+                
+                # Create demand group
+                map_data["demand_groups"].append({
+                    "id": group_id,
+                    "name": group_id.replace("_", " ").title(),
+                    "polygon": {
+                        "color": "#0DA9FF",
+                        "fillColor": "#0DA9FF33",
+                        "weight": 2,
+                        "points": points
+                    },
+                    "metadata": {
+                        "firm_capacity_mw": 30.0 * data["count"],  # Example calculation
+                        "total_energy_mwh": 800.0 * data["count"],
+                        "energy_above_capacity_mwh": 20.0 * data["count"],
+                        "substation_count": data["count"],
+                        "substations": data["substations"]
+                    }
+                })
+            
+            # Save the generated data
+            save_result = self.save_map_data(map_data)
+            if save_result["status"] != "success":
+                return save_result
+            
+            return {"status": "success", "data": map_data}
+        except Exception as e:
+            logger.error(f"Error generating map data: {str(e)}")
+            return {"status": "error", "message": str(e)}
 
 def main():
     """Main function to start the application"""
