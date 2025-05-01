@@ -43,59 +43,112 @@ jobs:
           pip install $(grep -v "pywin32" requirements.txt | grep -v "^#")
         fi
         
-    - name: Create output directories
+    - name: Create and check output directories
       run: |
-        mkdir -p firm_capacity_analysis/output/Monktonhall
-        mkdir -p firm_capacity_analysis/tests/output
-        mkdir -p firm_capacity_analysis/tests/reference_data/Monktonhall
+        # Detect repository structure
+        if [ -d "tests" ]; then
+          echo "Repository uses: tests/"
+          BASE_PATH=""
+        elif [ -d "firm_capacity_analysis/tests" ]; then
+          echo "Repository uses: firm_capacity_analysis/tests/"
+          BASE_PATH="firm_capacity_analysis/"
+        else
+          echo "Could not determine repository structure, searching..."
+          find . -type d -name tests -print
+          # Default to the standard structure
+          BASE_PATH=""
+        fi
+        
+        # Create all necessary directories with our detected structure
+        mkdir -p ${BASE_PATH}output/Monktonhall
+        mkdir -p ${BASE_PATH}tests/output
+        mkdir -p ${BASE_PATH}tests/reference_data/Monktonhall
+        
+        # Show debug info
+        echo "Directory structure after creation:"
+        find . -name Monktonhall -type d | sort
         
     - name: Check for reference data
       run: |
-        if [ ! -d "firm_capacity_analysis/tests/reference_data" ] || [ -z "$(ls -A firm_capacity_analysis/tests/reference_data)" ] || [ ! -f "firm_capacity_analysis/tests/reference_data/Monktonhall/competitions.json" ]; then
+        # Determine the correct reference_data path based on repository structure
+        if [ -d "tests/reference_data" ]; then
+          REF_PATH="tests/reference_data"
+          OUTPUT_PATH="output"
+          echo "Repository structure: tests/reference_data"
+        elif [ -d "firm_capacity_analysis/tests/reference_data" ]; then
+          REF_PATH="firm_capacity_analysis/tests/reference_data"
+          OUTPUT_PATH="firm_capacity_analysis/output"
+          echo "Repository structure: firm_capacity_analysis/tests/reference_data"
+        else
           echo "ERROR: Reference data not found in repository. Tests cannot run."
+          find . -type d -name reference_data -print
+          exit 1
+        fi
+        
+        if [ ! -f "$REF_PATH/Monktonhall/competitions.json" ]; then
+          echo "ERROR: Required reference data file (competitions.json) not found in repository."
+          ls -la "$REF_PATH/Monktonhall/" || echo "Monktonhall directory doesn't exist or is empty"
           exit 1
         else
-          echo "Using reference data from repository"
+          echo "Using reference data from repository at $REF_PATH"
         fi
         
         # Create __init__.py files if they don't exist
-        mkdir -p firm_capacity_analysis/tests/reference_data/Monktonhall
-        [ -f firm_capacity_analysis/tests/__init__.py ] || echo '"""Test package for firm capacity analysis."""' > firm_capacity_analysis/tests/__init__.py
-        [ -f firm_capacity_analysis/tests/reference_data/__init__.py ] || echo '"""Reference data package for tests."""' > firm_capacity_analysis/tests/reference_data/__init__.py
-        [ -f firm_capacity_analysis/tests/reference_data/Monktonhall/__init__.py ] || echo '"""Reference data for Monktonhall substation."""' > firm_capacity_analysis/tests/reference_data/Monktonhall/__init__.py
+        mkdir -p "$REF_PATH/Monktonhall"
+        [ -f "${REF_PATH%/reference_data}/__init__.py" ] || echo '"""Test package for firm capacity analysis."""' > "${REF_PATH%/reference_data}/__init__.py"
+        [ -f "$REF_PATH/__init__.py" ] || echo '"""Reference data package for tests."""' > "$REF_PATH/__init__.py"
+        [ -f "$REF_PATH/Monktonhall/__init__.py" ] || echo '"""Reference data for Monktonhall substation."""' > "$REF_PATH/Monktonhall/__init__.py"
         
         # Copy reference data to output directory for tests
-        mkdir -p firm_capacity_analysis/output/Monktonhall
-        cp firm_capacity_analysis/tests/reference_data/Monktonhall/competitions.json firm_capacity_analysis/output/Monktonhall/
-        cp firm_capacity_analysis/tests/reference_data/Monktonhall/metadata.json firm_capacity_analysis/output/Monktonhall/
-        cp firm_capacity_analysis/tests/reference_data/Monktonhall/firm_capacity_results.csv firm_capacity_analysis/output/Monktonhall/
+        mkdir -p "$OUTPUT_PATH/Monktonhall"
+        cp "$REF_PATH/Monktonhall/competitions.json" "$OUTPUT_PATH/Monktonhall/"
+        cp "$REF_PATH/Monktonhall/metadata.json" "$OUTPUT_PATH/Monktonhall/"
+        cp "$REF_PATH/Monktonhall/firm_capacity_results.csv" "$OUTPUT_PATH/Monktonhall/"
         
         # Create pytest.ini for test discovery if it doesn't exist
-        if [ ! -f firm_capacity_analysis/pytest.ini ]; then
-          echo '[pytest]' > firm_capacity_analysis/pytest.ini
-          echo 'python_files = test_*.py' >> firm_capacity_analysis/pytest.ini
-          echo 'testpaths = tests' >> firm_capacity_analysis/pytest.ini
-          echo 'python_classes = *Test' >> firm_capacity_analysis/pytest.ini
-          echo 'python_functions = test_*' >> firm_capacity_analysis/pytest.ini
+        TESTS_DIR="${REF_PATH%/reference_data}"
+        if [ ! -f "$TESTS_DIR/../pytest.ini" ]; then
+          echo '[pytest]' > "$TESTS_DIR/../pytest.ini"
+          echo 'python_files = test_*.py' >> "$TESTS_DIR/../pytest.ini"
+          echo 'testpaths = tests' >> "$TESTS_DIR/../pytest.ini"
+          echo 'python_classes = *Test' >> "$TESTS_DIR/../pytest.ini"
+          echo 'python_functions = test_*' >> "$TESTS_DIR/../pytest.ini"
         fi
         
     - name: Run tests
       run: |
-        cd firm_capacity_analysis
+        # Determine run directory based on repository structure
+        if [ -d "tests" ]; then
+          RUN_DIR="."
+          TESTS_PATH="tests"
+        elif [ -d "firm_capacity_analysis/tests" ]; then
+          RUN_DIR="firm_capacity_analysis"
+          TESTS_PATH="tests"
+        else
+          echo "ERROR: Could not determine where to run tests from!"
+          find . -type d -name tests -print
+          exit 1
+        fi
+        
+        # Change to correct directory
+        cd "$RUN_DIR"
+        
         # Debug information
+        echo "===== Current Working Directory ====="
+        pwd
         echo "===== Directory Structure ====="
         ls -la
         echo "===== Tests Directory Structure ====="
-        ls -la tests/
+        ls -la "$TESTS_PATH/"
         echo "===== Reference Data Structure ====="
-        ls -la tests/reference_data/
-        ls -la tests/reference_data/Monktonhall/
+        ls -la "$TESTS_PATH/reference_data/" || echo "Reference data directory not found"
+        ls -la "$TESTS_PATH/reference_data/Monktonhall/" || echo "Monktonhall directory not found"
         echo "===== Python Path ====="
         python -c "import sys; print(sys.path)"
         echo "===== Test Collection ====="
-        python -m pytest -v --collect-only tests/
+        python -m pytest -v --collect-only "$TESTS_PATH/"
         echo "===== Running Tests ====="
-        python -m pytest -v tests/
+        python -m pytest -v "$TESTS_PATH/"
         
         
     - name: Upload test artifacts
@@ -104,5 +157,5 @@ jobs:
       with:
         name: test-artifacts
         path: |
-          firm_capacity_analysis/tests/output/
-          firm_capacity_analysis/output/*/service_window_mwh.csv
+          **/tests/output/
+          **/output/*/service_window_mwh.csv
