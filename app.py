@@ -959,7 +959,7 @@ def main():
     )
     
     # Start the application
-    webview.start(debug=True)
+    webview.start(debug=True, gui='system')
 
 if __name__ == "__main__":
     main()
