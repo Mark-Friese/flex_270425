@@ -14,8 +14,10 @@ import pandas as pd
 import numpy as np
 import traceback
 import math
+import requests
 from pathlib import Path
 from datetime import datetime
+from typing import Dict, List, Optional, Union, Any
 
 # Import original firm capacity modules
 from src.utils import load_config, ensure_dir, load_site_specific_targets
@@ -49,6 +51,259 @@ logging.basicConfig(
 
 logger = logging.getLogger('flexibility_app')
 
+class GisApiClient:
+    """Client for interacting with the GIS API"""
+    
+    def __init__(self, base_url: str = "", api_key: Optional[str] = None):
+        """Initialize the GIS API client
+        
+        Args:
+            base_url: Base URL for the API
+            api_key: Optional API key for authentication
+        """
+        self.base_url = base_url
+        self.api_key = api_key
+        self.endpoints = {
+            "substations": "/api/gis/substations",
+            "demand_groups": "/api/gis/demand-groups",
+            "circuits": "/api/gis/circuits"
+        }
+        
+    def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Dict:
+        """Make a request to the API
+        
+        Args:
+            endpoint: API endpoint to call
+            params: Query parameters
+            
+        Returns:
+            Response JSON
+        
+        Raises:
+            requests.RequestException: If the request fails
+        """
+        if not self.base_url:
+            raise ValueError("API base URL not configured")
+            
+        headers = {}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+            
+        url = f"{self.base_url}{endpoint}"
+        response = requests.get(url, params=params, headers=headers)
+        
+        # Raise exception for error status codes
+        response.raise_for_status()
+        
+        return response.json()
+        
+    def get_substations(self, area: Optional[str] = None, substation_type: Optional[str] = None) -> Dict:
+        """Get substations from the API
+        
+        Args:
+            area: Optional area filter
+            substation_type: Optional substation type filter
+            
+        Returns:
+            GeoJSON response with substation data
+        """
+        params = {}
+        if area:
+            params["area"] = area
+        if substation_type:
+            params["type"] = substation_type
+            
+        return self._make_request(self.endpoints["substations"], params)
+        
+    def get_demand_groups(self, group_ids: Optional[List[int]] = None) -> Dict:
+        """Get demand groups from the API
+        
+        Args:
+            group_ids: Optional list of group IDs to filter
+            
+        Returns:
+            GeoJSON response with demand group data
+        """
+        params = {}
+        if group_ids:
+            params["group_ids"] = group_ids
+            
+        return self._make_request(self.endpoints["demand_groups"], params)
+        
+    def get_circuits(self, voltage: Optional[float] = None, from_substation: Optional[int] = None) -> Dict:
+        """Get circuits from the API
+        
+        Args:
+            voltage: Optional voltage level filter
+            from_substation: Optional source substation ID filter
+            
+        Returns:
+            GeoJSON response with circuit data
+        """
+        params = {}
+        if voltage:
+            params["voltage"] = voltage
+        if from_substation:
+            params["from_substation"] = from_substation
+            
+        return self._make_request(self.endpoints["circuits"], params)
+        
+    def _convert_substations_to_app_format(self, geojson: Dict) -> List[Dict]:
+        """Convert substations GeoJSON to app format
+        
+        Args:
+            geojson: GeoJSON from the API
+            
+        Returns:
+            List of substation objects in app format
+        """
+        substations = []
+        
+        # Process each substation feature
+        if "features" in geojson:
+            for feature in geojson["features"]:
+                if feature["geometry"]["type"] != "Point":
+                    continue
+                    
+                properties = feature["properties"]
+                coordinates = feature["geometry"]["coordinates"]
+                
+                # Create substation in app format
+                substation = {
+                    "name": properties.get("id") or properties.get("name"),
+                    "display_name": properties.get("name") or properties.get("display_name") or properties.get("id"),
+                    "coordinates": {
+                        "lat": coordinates[1],  # GeoJSON uses [longitude, latitude]
+                        "lng": coordinates[0]
+                    },
+                    "metadata": {
+                        "voltage_level": properties.get("voltage_level") or properties.get("voltage") or "33/11kV",
+                        "region": properties.get("region") or properties.get("area") or "Default",
+                        "capacity_mw": properties.get("capacity") or properties.get("capacity_mw") or 30.0,
+                        "transformer_count": properties.get("transformer_count") or 1,
+                        "demand_group": properties.get("demand_group") or properties.get("group_id")
+                    },
+                    "icon": {
+                        "color": "#0DA9FF" if "132" in str(properties.get("voltage_level") or "") else "#00A443",
+                        "size": "large" if "132" in str(properties.get("voltage_level") or "") else "medium"
+                    }
+                }
+                
+                substations.append(substation)
+                
+        return substations
+        
+    def _convert_demand_groups_to_app_format(self, geojson: Dict) -> List[Dict]:
+        """Convert demand groups GeoJSON to app format
+        
+        Args:
+            geojson: GeoJSON from the API
+            
+        Returns:
+            List of demand group objects in app format
+        """
+        demand_groups = []
+        
+        # Process each demand group feature
+        if "features" in geojson:
+            for feature in geojson["features"]:
+                if feature["geometry"]["type"] != "Polygon":
+                    continue
+                    
+                properties = feature["properties"]
+                coordinates = feature["geometry"]["coordinates"]
+                
+                # Skip if no polygon data
+                if not coordinates or not coordinates[0]:
+                    continue
+                    
+                # Extract points from the first polygon ring
+                points = [{"lat": coord[1], "lng": coord[0]} for coord in coordinates[0]]
+                
+                # Create demand group in app format
+                demand_group = {
+                    "id": properties.get("id") or properties.get("group_id"),
+                    "name": properties.get("name") or properties.get("display_name") or f"Group {properties.get('id')}",
+                    "polygon": {
+                        "color": properties.get("color") or "#00A443",
+                        "fillColor": properties.get("fillColor") or "#00A44333",
+                        "weight": properties.get("weight") or 2,
+                        "points": points
+                    },
+                    "metadata": {
+                        "firm_capacity_mw": properties.get("firm_capacity") or properties.get("capacity") or 45.0,
+                        "total_energy_mwh": properties.get("total_energy") or properties.get("energy") or 980.0,
+                        "energy_above_capacity_mwh": properties.get("energy_above_capacity") or 18.0,
+                        "substation_count": properties.get("substation_count") or 1,
+                        "substations": properties.get("substations") or [],
+                        "peak_demand_time": properties.get("peak_time") or "2025-01-15T18:30:00Z"
+                    }
+                }
+                
+                demand_groups.append(demand_group)
+                
+        return demand_groups
+        
+    def get_map_data(self) -> Dict:
+        """Get complete map data (substations and demand groups)
+        
+        Returns:
+            Map data in app format
+        """
+        try:
+            # Get substations and demand groups
+            substations_geojson = self.get_substations()
+            demand_groups_geojson = self.get_demand_groups()
+            
+            # Convert to app format
+            substations = self._convert_substations_to_app_format(substations_geojson)
+            demand_groups = self._convert_demand_groups_to_app_format(demand_groups_geojson)
+            
+            # Calculate map center (average of substation coordinates)
+            if substations:
+                lat_sum = sum(s["coordinates"]["lat"] for s in substations)
+                lng_sum = sum(s["coordinates"]["lng"] for s in substations)
+                center = {
+                    "lat": lat_sum / len(substations),
+                    "lng": lng_sum / len(substations)
+                }
+            else:
+                center = {"lat": 55.0500, "lng": -1.4500}  # Default UK center
+                
+            # Create complete map data structure
+            map_data = {
+                "substations": substations,
+                "demand_groups": demand_groups,
+                "layers": [
+                    {
+                        "id": "substations",
+                        "name": "Substations",
+                        "type": "marker",
+                        "visible": True,
+                        "source": "substations"
+                    },
+                    {
+                        "id": "demand_groups",
+                        "name": "Demand Groups",
+                        "type": "polygon",
+                        "visible": True,
+                        "source": "demand_groups"
+                    }
+                ],
+                "map_defaults": {
+                    "center": center,
+                    "zoom": 10,
+                    "max_zoom": 18,
+                    "min_zoom": 6
+                }
+            }
+            
+            return map_data
+            
+        except Exception as e:
+            logger.error(f"Error getting map data from API: {str(e)}")
+            raise
+
 class FlexibilityAnalysisAPI:
     """API class to handle interaction between web UI and Python backend"""
     
@@ -67,6 +322,9 @@ class FlexibilityAnalysisAPI:
         self.docs_dir = self.base_dir / "ui" / "docs"
         if not self.docs_dir.exists():
             self.docs_dir.mkdir(parents=True, exist_ok=True)
+            
+        # Load API settings
+        self.api_settings = self.get_api_settings()
         
     def select_config_file(self):
         """Open a file dialog to select a configuration file"""
@@ -542,6 +800,98 @@ class FlexibilityAnalysisAPI:
             return {"status": "success", "data": map_data}
         except Exception as e:
             logger.error(f"Error generating map data: {str(e)}")
+            return {"status": "error", "message": str(e)}
+
+    # API-related methods
+    def get_api_settings(self):
+        """Get current API settings
+        
+        Returns:
+            Dict with API settings
+        """
+        # Find config file location
+        settings_path = self.base_dir / "api_settings.json"
+        
+        if not settings_path.exists():
+            return {
+                "use_api": False,
+                "base_url": "",
+                "api_key": ""
+            }
+            
+        try:
+            with open(settings_path, "r") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Error loading API settings: {str(e)}")
+            return {
+                "use_api": False,
+                "base_url": "",
+                "api_key": ""
+            }
+    
+    def save_api_settings(self, settings):
+        """Save API settings
+        
+        Args:
+            settings: Dict with API settings
+        
+        Returns:
+            Dict with result status
+        """
+        try:
+            # Validate settings
+            if not isinstance(settings, dict):
+                return {"status": "error", "message": "Invalid settings format"}
+                
+            # Ensure directory exists
+            settings_path = self.base_dir / "api_settings.json"
+            settings_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Write settings
+            with open(settings_path, "w") as f:
+                json.dump(settings, f, indent=2)
+                
+            # Update internal settings
+            self.api_settings = settings
+                
+            logger.info(f"Saved API settings: {settings.get('base_url')}")
+            return {"status": "success"}
+        except Exception as e:
+            logger.error(f"Error saving API settings: {str(e)}")
+            return {"status": "error", "message": str(e)}
+    
+    def load_map_data_from_api(self):
+        """Load map data from the GIS API
+        
+        Returns:
+            Dict with map data or error status
+        """
+        try:
+            # Check if API is configured
+            if not self.api_settings.get("use_api") or not self.api_settings.get("base_url"):
+                return {"status": "error", "message": "API not configured"}
+                
+            # Create API client
+            client = GisApiClient(
+                base_url=self.api_settings.get("base_url"),
+                api_key=self.api_settings.get("api_key")
+            )
+            
+            logger.info(f"Fetching map data from API: {self.api_settings.get('base_url')}")
+            
+            # Get map data
+            map_data = client.get_map_data()
+            
+            # Save to file for caching
+            coords_path = self.assets_dir / "substation_coordinates.json"
+            with open(coords_path, "w") as f:
+                json.dump(map_data, f, indent=2)
+                
+            logger.info(f"Loaded map data from API: {len(map_data.get('substations', []))} substations, {len(map_data.get('demand_groups', []))} demand groups")
+            return {"status": "success", "data": map_data}
+        except Exception as e:
+            logger.error(f"Error loading map data from API: {str(e)}")
             return {"status": "error", "message": str(e)}
 
 def copy_documentation():

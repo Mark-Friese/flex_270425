@@ -1,9 +1,348 @@
 /**
  * Flexibility Analysis System - Frontend Application
- * 
- * This script handles the interaction between the web UI and the Python backend
+ * * This script handles the interaction between the web UI and the Python backend
  * through the PyWebView JS API.
  */
+
+// Part 1: MapDataService Class Implementation
+/**
+ * Map Data Service for GIS API integration
+ */
+class MapDataService {
+    constructor(baseUrl = '') {
+        this.baseUrl = baseUrl || ''; // Default empty means use local files
+        this.endpoints = {
+            substations: '/api/gis/substations',
+            demandGroups: '/api/gis/demand-groups',
+            circuits: '/api/gis/circuits'
+        };
+        this.cacheKey = 'mapData_cache';
+        this.cacheVersionKey = 'mapData_version';
+        this.currentCacheVersion = '1.0'; // Update when data format changes
+    }
+
+    /**
+     * Check if API is configured
+     * @returns {boolean} True if API is configured
+     */
+    isApiConfigured() {
+        return !!this.baseUrl;
+    }
+
+    /**
+     * Convert API GeoJSON response to the format expected by the application
+     * * @param {Object} geoJson - GeoJSON response from the API
+     * @returns {Array} - Formatted substations data
+     */
+    _convertSubstationsGeoJsonToAppFormat(geoJson) {
+        const substations = [];
+
+        // Process each feature (substation)
+        if (geoJson && geoJson.features) {
+            geoJson.features.forEach(feature => {
+                const properties = feature.properties || {};
+                const coordinates = feature.geometry.coordinates;
+                
+                // Create a substation object in the application's expected format
+                substations.push({
+                    name: properties.id || properties.name,
+                    display_name: properties.name || properties.display_name || properties.id,
+                    coordinates: {
+                        lat: coordinates[1], // GeoJSON uses [longitude, latitude]
+                        lng: coordinates[0]
+                    },
+                    metadata: {
+                        voltage_level: properties.voltage_level || properties.voltage || "33/11kV",
+                        region: properties.region || properties.area || "Default",
+                        capacity_mw: properties.capacity || properties.capacity_mw || 30.0,
+                        transformer_count: properties.transformer_count || 1,
+                        demand_group: properties.demand_group || properties.group_id
+                    },
+                    icon: {
+                        color: properties.voltage_level?.includes("132") ? "#0DA9FF" : "#00A443",
+                        size: properties.voltage_level?.includes("132") ? "large" : "medium"
+                    }
+                });
+            });
+        }
+
+        return substations;
+    }
+    
+    /**
+     * Convert API GeoJSON demand groups to the format expected by the application
+     * * @param {Object} geoJson - GeoJSON response from the API
+     * @returns {Array} - Formatted demand group data
+     */
+    _convertDemandGroupsGeoJsonToAppFormat(geoJson) {
+        const demandGroups = [];
+        
+        // Process each feature (demand group)
+        if (geoJson && geoJson.features) {
+            geoJson.features.forEach(feature => {
+                const properties = feature.properties || {};
+                const coordinates = feature.geometry.coordinates;
+                
+                // Skip if no polygon data
+                if (!coordinates || !coordinates[0]) return;
+                
+                // Extract points from the first polygon ring
+                const points = coordinates[0].map(coord => ({
+                    lat: coord[1], // GeoJSON uses [longitude, latitude]
+                    lng: coord[0]
+                }));
+                
+                // Create a demand group in the application's expected format
+                demandGroups.push({
+                    id: properties.id || properties.group_id,
+                    name: properties.name || properties.display_name || `Group ${properties.id}`,
+                    polygon: {
+                        color: properties.color || "#00A443",
+                        fillColor: properties.fillColor || "#00A44333",
+                        weight: properties.weight || 2,
+                        points: points
+                    },
+                    metadata: {
+                        firm_capacity_mw: properties.firm_capacity || properties.capacity || 45.0,
+                        total_energy_mwh: properties.total_energy || properties.energy || 980.0,
+                        energy_above_capacity_mwh: properties.energy_above_capacity || 18.0,
+                        substation_count: properties.substation_count || 1,
+                        substations: properties.substations || [],
+                        peak_demand_time: properties.peak_time || "2025-01-15T18:30:00Z"
+                    }
+                });
+            });
+        }
+        
+        return demandGroups;
+    }
+
+    /**
+     * Save map data to localStorage cache
+     * * @param {Object} data - Map data to cache
+     * @param {number} timestamp - Timestamp when data was fetched
+     */
+    saveToCache(data, timestamp) {
+        try {
+            const cacheData = {
+                data: data,
+                timestamp: timestamp || Date.now(),
+                version: this.currentCacheVersion
+            };
+            
+            localStorage.setItem(this.cacheKey, JSON.stringify(cacheData));
+            localStorage.setItem(this.cacheVersionKey, this.currentCacheVersion);
+            console.log('Map data saved to cache');
+        } catch (error) {
+            console.error('Error saving map data to cache:', error);
+            // If localStorage fails (e.g., quota exceeded), try to clear it and retry
+            try {
+                localStorage.removeItem(this.cacheKey);
+                localStorage.setItem(this.cacheKey, JSON.stringify({
+                    data: data,
+                    timestamp: timestamp || Date.now(),
+                    version: this.currentCacheVersion
+                }));
+            } catch (e) {
+                console.error('Failed to save to cache after clearing:', e);
+            }
+        }
+    }
+
+    /**
+     * Load map data from localStorage cache
+     * * @returns {Object|null} Cached map data or null if not found/invalid
+     */
+    loadFromCache() {
+        try {
+            // Check if cache version matches current version
+            const cacheVersion = localStorage.getItem(this.cacheVersionKey);
+            if (cacheVersion !== this.currentCacheVersion) {
+                console.log('Cache version mismatch, clearing cache');
+                localStorage.removeItem(this.cacheKey);
+                return null;
+            }
+            
+            const cacheData = localStorage.getItem(this.cacheKey);
+            if (!cacheData) return null;
+            
+            const parsed = JSON.parse(cacheData);
+            
+            // Check if cache is valid and has data
+            if (!parsed.data || !parsed.timestamp) return null;
+            
+            console.log(`Loaded map data from cache (${new Date(parsed.timestamp).toLocaleString()})`);
+            return parsed.data;
+        } catch (error) {
+            console.error('Error loading map data from cache:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Check if cache is stale (older than specified time)
+     * * @param {number} maxAge - Maximum age in milliseconds
+     * @returns {boolean} True if cache is stale or doesn't exist
+     */
+    isCacheStale(maxAge = 3600000) { // Default: 1 hour
+        try {
+            const cacheData = localStorage.getItem(this.cacheKey);
+            if (!cacheData) return true;
+            
+            const parsed = JSON.parse(cacheData);
+            if (!parsed.timestamp) return true;
+            
+            const age = Date.now() - parsed.timestamp;
+            return age > maxAge;
+        } catch (error) {
+            console.error('Error checking cache age:', error);
+            return true; // If any error, treat as stale
+        }
+    }
+
+    /**
+     * Fetch substation data from the API
+     * * @param {Object} filters - Optional filters for the API request
+     * @returns {Promise<Array>} - Formatted substation data
+     */
+    async fetchSubstations(filters = {}) {
+        if (!this.isApiConfigured()) {
+            throw new Error('API not configured');
+        }
+        
+        try {
+            // Build query string from filters
+            const queryParams = new URLSearchParams();
+            if (filters.area) queryParams.append('area', filters.area);
+            if (filters.type) queryParams.append('type', filters.type);
+            
+            const queryString = queryParams.toString();
+            const url = `${this.baseUrl}${this.endpoints.substations}${queryString ? '?' + queryString : ''}`;
+            
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status} ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            return this._convertSubstationsGeoJsonToAppFormat(data);
+        } catch (error) {
+            console.error('Error fetching substations:', error);
+            throw error;
+        }
+    }
+    
+    /**
+     * Fetch demand groups data from the API
+     * * @param {Array} groupIds - Optional array of group IDs to filter
+     * @returns {Promise<Array>} - Formatted demand group data
+     */
+    async fetchDemandGroups(groupIds = null) {
+        if (!this.isApiConfigured()) {
+            throw new Error('API not configured');
+        }
+        
+        try {
+            // Build query string for group IDs filter
+            const queryParams = new URLSearchParams();
+            if (groupIds && groupIds.length > 0) {
+                groupIds.forEach(id => queryParams.append('group_ids', id));
+            }
+            
+            const queryString = queryParams.toString();
+            const url = `${this.baseUrl}${this.endpoints.demandGroups}${queryString ? '?' + queryString : ''}`;
+            
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status} ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            return this._convertDemandGroupsGeoJsonToAppFormat(data);
+        } catch (error) {
+            console.error('Error fetching demand groups:', error);
+            throw error;
+        }
+    }
+    
+    /**
+     * Fetch both substations and demand groups and return combined data 
+     * * @param {Object} options - Options for fetching
+     * @param {boolean} options.forceRefresh - Force refresh from API even if cache is valid
+     * @param {number} options.cacheMaxAge - Maximum cache age in milliseconds
+     * @returns {Promise<Object>} - Combined map data
+     */
+    async fetchMapData(options = {}) {
+        const { forceRefresh = false, cacheMaxAge = 3600000 } = options;
+        
+        // First check if we should use cache
+        if (!forceRefresh && !this.isCacheStale(cacheMaxAge)) {
+            const cachedData = this.loadFromCache();
+            if (cachedData) {
+                return cachedData;
+            }
+        }
+        
+        // If not using API, throw error to fall back to local file
+        if (!this.isApiConfigured()) {
+            throw new Error('API not configured');
+        }
+        
+        try {
+            const fetchTime = Date.now();
+            const [substations, demandGroups] = await Promise.all([
+                this.fetchSubstations(),
+                this.fetchDemandGroups()
+            ]);
+            
+            // Return in the format the application expects
+            const mapData = {
+                substations,
+                demand_groups: demandGroups,
+                layers: [
+                    {
+                        id: "substations",
+                        name: "Substations",
+                        type: "marker",
+                        visible: true,
+                        source: "substations"
+                    },
+                    {
+                        id: "demand_groups",
+                        name: "Demand Groups",
+                        type: "polygon",
+                        visible: true,
+                        source: "demand_groups"
+                    }
+                ],
+                map_defaults: {
+                    center: {
+                        lat: substations.length > 0 ? 
+                            substations.reduce((sum, s) => sum + s.coordinates.lat, 0) / substations.length : 
+                            55.0500,
+                        lng: substations.length > 0 ? 
+                            substations.reduce((sum, s) => sum + s.coordinates.lng, 0) / substations.length : 
+                            -1.4500
+                    },
+                    zoom: 10,
+                    max_zoom: 18,
+                    min_zoom: 6
+                }
+            };
+            
+            // Save to cache
+            this.saveToCache(mapData, fetchTime);
+            
+            return mapData;
+        } catch (error) {
+            console.error('Error fetching map data:', error);
+            throw error;
+        }
+    }
+}
+
 
 document.addEventListener('DOMContentLoaded', function() {
     // Documentation state
@@ -40,6 +379,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Current results state
     let currentSubstation = null;
     let currentResults = null;
+
+    // Part 2: Initialize the Service and Add Settings
+    // Map Data Service instance
+    let mapDataService = new MapDataService();
     
     // Event Listeners
     loadConfigBtn.addEventListener('click', handleLoadConfig);
@@ -75,6 +418,13 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('docSectionSelect')?.addEventListener('change', function() {
         loadDocPage(this.value);
     });
+
+    // Part 4: Add API Settings UI (Event Listeners)
+    // Add API settings button listener
+    document.getElementById('apiSettingsBtn')?.addEventListener('click', showApiSettingsModal);
+
+    // Add refresh map data button listener
+    document.getElementById('refreshMapDataBtn')?.addEventListener('click', handleRefreshMapData);
     
     
     // Check for config data on load
@@ -85,6 +435,9 @@ document.addEventListener('DOMContentLoaded', function() {
      */
     async function initializeApp() {
         try {
+            // Part 5: Load API Settings on Startup
+            loadApiSettings();
+
             // Try to load default config
             const result = await window.pywebview.api.load_config();
             
@@ -847,24 +1200,100 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // Part 3: Updated loadMapData Function
     /**
-     * Load substation coordinates and demand group data from the JSON file
+     * Load substation coordinates and demand group data from API or local file
+     * with caching support
      */
-    async function loadMapData() {
+    async function loadMapData(options = {}) {
+        const { forceRefresh = false, showStatus = true } = options;
+        
         try {
+            // Try to load data from API first if configured
+            if (mapDataService.isApiConfigured()) {
+                if (showStatus) {
+                    setStatus('Loading map data from API...', 'info');
+                }
+                
+                try {
+                    // Try to load from API with caching
+                    substationCoordinates = await mapDataService.fetchMapData({
+                        forceRefresh: forceRefresh,
+                        cacheMaxAge: 3600000 // 1 hour
+                    });
+                    
+                    console.log(`Loaded data from API for ${substationCoordinates.substations.length} substations and ${substationCoordinates.demand_groups?.length || 0} demand groups`);
+                    
+                    if (showStatus) {
+                        setStatus('Map data loaded successfully from API.', 'success');
+                    }
+                    
+                    // Save to backend file storage
+                    if (window.pywebview && window.pywebview.api && window.pywebview.api.save_map_data) {
+                        try {
+                            await window.pywebview.api.save_map_data(substationCoordinates);
+                            console.log('Map data saved to backend storage');
+                        } catch (backendError) {
+                            console.warn('Failed to save map data to backend:', backendError);
+                        }
+                    }
+                    
+                    // Update map data status display
+                    updateMapDataStatus();
+                    
+                    return substationCoordinates;
+                } catch (apiError) {
+                    console.warn('API error, falling back to local storage:', apiError);
+                    
+                    // Check for cached data
+                    const cachedData = mapDataService.loadFromCache();
+                    if (cachedData) {
+                        substationCoordinates = cachedData;
+                        console.log(`Using cached data for ${substationCoordinates.substations.length} substations`);
+                        
+                        if (showStatus) {
+                            setStatus('Using cached map data (API unavailable).', 'warning');
+                        }
+                        
+                        // Update map data status display
+                        updateMapDataStatus();
+                        
+                        return substationCoordinates;
+                    }
+                    
+                    // If no cache, try local file
+                    if (showStatus) {
+                        setStatus(`API error: ${apiError.message}. Trying local file...`, 'warning');
+                    }
+                }
+            }
+            
+            // Fall back to local file
             const response = await fetch('assets/substation_coordinates.json');
             if (!response.ok) {
-                throw new Error(`Failed to load map data: ${response.status}`);
+                throw new Error(`Failed to load local map data: ${response.status}`);
             }
             
             substationCoordinates = await response.json();
-            console.log(`Loaded data for ${substationCoordinates.substations.length} substations and ${substationCoordinates.demand_groups?.length || 0} demand groups`);
+            console.log(`Loaded local data for ${substationCoordinates.substations.length} substations and ${substationCoordinates.demand_groups?.length || 0} demand groups`);
             
-            // Return the data in case it's needed directly
+            // Cache the local data too
+            mapDataService.saveToCache(substationCoordinates);
+            
+            if (showStatus) {
+                setStatus('Map data loaded from local file.', 'info');
+            }
+            
+            // Update map data status display
+            updateMapDataStatus();
+            
             return substationCoordinates;
         } catch (error) {
             console.error('Error loading map data:', error);
-            setStatus(`Warning: Could not load substation and demand group data. Map will use approximate locations.`, 'warning');
+            
+            if (showStatus) {
+                setStatus(`Warning: Could not load map data. ${error.message}. Map will use approximate locations.`, 'warning');
+            }
             
             // Return null to indicate failure
             return null;
@@ -873,8 +1302,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     /**
      * Get coordinates for a specific substation
-     * 
-     * @param {string} substationName - The name of the substation
+     * * @param {string} substationName - The name of the substation
      * @returns {Object|null} - Object with lat/lng and metadata or null if not found
      */
     function getSubstationData(substationName) {
@@ -891,8 +1319,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     /**
      * Get demand group data for a given group ID
-     * 
-     * @param {string} groupId - The ID of the demand group
+     * * @param {string} groupId - The ID of the demand group
      * @returns {Object|null} - Demand group data or null if not found
      */
     function getDemandGroupData(groupId) {
@@ -905,8 +1332,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     /**
      * Get demand group data that contains a specific substation
-     * 
-     * @param {string} substationName - The name of the substation
+     * * @param {string} substationName - The name of the substation
      * @returns {Object|null} - Demand group data or null if not found
      */
     function getDemandGroupForSubstation(substationName) {
@@ -1378,8 +1804,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     /**
      * Read a file as text
-     * 
-     * @param {File} file - The file to read
+     * * @param {File} file - The file to read
      * @returns {Promise<string>} - The file contents as text
      */
     function readFileAsText(file) {
@@ -1393,8 +1818,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     /**
      * Validate map data structure
-     * 
-     * @param {Object} data - The map data to validate
+     * * @param {Object} data - The map data to validate
      * @returns {Object} - Validation result {valid: boolean, error: string}
      */
     function validateMapData(data) {
@@ -2002,4 +2426,257 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     }
+
+    // Part 4: Add API Settings UI (Function Definitions)
+    /**
+     * Show API settings modal
+     */
+    function showApiSettingsModal() {
+        // Create modal HTML if it doesn't exist
+        if (!document.getElementById('apiSettingsModal')) {
+            const modalHtml = `
+                <div class="modal fade" id="apiSettingsModal" tabindex="-1" aria-labelledby="apiSettingsModalLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="apiSettingsModalLabel">API Settings</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="apiSettingsForm">
+                                    <div class="mb-3">
+                                        <label for="apiBaseUrl" class="form-label">API Base URL</label>
+                                        <input type="url" class="form-control" id="apiBaseUrl" 
+                                               placeholder="https://api.yourdomain.com" 
+                                               value="${mapDataService.baseUrl}">
+                                        <div class="form-text">Base URL for the GIS data API</div>
+                                    </div>
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="checkbox" id="useApiCheckbox" 
+                                               ${mapDataService.baseUrl ? 'checked' : ''}>
+                                        <label class="form-check-label" for="useApiCheckbox">
+                                            Use API for GIS data
+                                        </label>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Cache Settings</label>
+                                        <div class="d-flex align-items-center mb-2">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary me-2" id="clearCacheBtn">
+                                                <i class="fas fa-trash me-1"></i>Clear Cache
+                                            </button>
+                                            <div id="cacheStatus" class="small text-muted">
+                                                ${getCacheStatusText()}
+                                            </div>
+                                        </div>
+                                        <div class="form-text">
+                                            Data is cached locally to improve performance and provide offline access.
+                                        </div>
+                                    </div>
+                                </form>
+                                <div id="testConnectionStatus"></div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-info" id="testApiConnection">Test Connection</button>
+                                <button type="button" class="btn btn-primary" id="saveApiSettings">Save Settings</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add modal to document
+            const modalContainer = document.createElement('div');
+            modalContainer.innerHTML = modalHtml;
+            document.body.appendChild(modalContainer.firstChild);
+            
+            // Add event listener for save button
+            document.getElementById('saveApiSettings').addEventListener('click', function() {
+                const useApi = document.getElementById('useApiCheckbox').checked;
+                const baseUrl = document.getElementById('apiBaseUrl').value.trim();
+                
+                if (useApi && !baseUrl) {
+                    alert('Please enter a valid API Base URL');
+                    return;
+                }
+                
+                // Update service
+                mapDataService.baseUrl = useApi ? baseUrl : '';
+                
+                // Save to localStorage for persistence
+                localStorage.setItem('apiSettings', JSON.stringify({
+                    useApi,
+                    baseUrl: useApi ? baseUrl : ''
+                }));
+                
+                // Reload map data
+                loadMapData({ forceRefresh: true }).then(() => {
+                    if (map) {
+                        renderAllMapData();
+                        if (currentResults) {
+                            updateMap(currentResults);
+                        }
+                    }
+                });
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('apiSettingsModal'));
+                modal.hide();
+                
+                setStatus(`API settings updated. ${useApi ? 'Using API for GIS data.' : 'Using local files for GIS data.'}`, 'success');
+            });
+            
+            // Add event listener for test connection button
+            document.getElementById('testApiConnection').addEventListener('click', async function() {
+                const baseUrl = document.getElementById('apiBaseUrl').value.trim();
+                const statusEl = document.getElementById('testConnectionStatus');
+                
+                if (!baseUrl) {
+                    statusEl.innerHTML = `
+                        <div class="alert alert-warning mt-3">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Please enter an API URL first
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Show testing indicator
+                statusEl.innerHTML = `
+                    <div class="alert alert-info mt-3">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm me-2" role="status">
+                                <span class="visually-hidden">Testing...</span>
+                            </div>
+                            <div>Testing connection to API...</div>
+                        </div>
+                    </div>
+                `;
+                
+                try {
+                    // Use a temporary service instance to test
+                    const testService = new MapDataService(baseUrl);
+                    await testService.fetchSubstations();
+                    
+                    // If we get here, connection was successful
+                    statusEl.innerHTML = `
+                        <div class="alert alert-success mt-3">
+                            <i class="fas fa-check-circle me-2"></i>Connection successful!
+                        </div>
+                    `;
+                } catch (error) {
+                    // Connection failed
+                    statusEl.innerHTML = `
+                        <div class="alert alert-danger mt-3">
+                            <i class="fas fa-times-circle me-2"></i>Connection failed: ${error.message}
+                        </div>
+                    `;
+                }
+            });
+            
+            // Add event listener for clear cache button
+            document.getElementById('clearCacheBtn').addEventListener('click', function() {
+                if (confirm('Are you sure you want to clear the cached map data?')) {
+                    localStorage.removeItem(mapDataService.cacheKey);
+                    localStorage.removeItem(mapDataService.cacheVersionKey);
+                    document.getElementById('cacheStatus').textContent = 'Cache cleared';
+                }
+            });
+        }
+        
+        // Load saved settings from localStorage
+        try {
+            const savedSettings = JSON.parse(localStorage.getItem('apiSettings') || '{}');
+            if (document.getElementById('apiBaseUrl')) {
+                document.getElementById('apiBaseUrl').value = savedSettings.baseUrl || '';
+            }
+            if (document.getElementById('useApiCheckbox')) {
+                document.getElementById('useApiCheckbox').checked = !!savedSettings.useApi;
+            }
+        } catch (e) {
+            console.error('Error loading saved API settings:', e);
+        }
+        
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('apiSettingsModal'));
+        modal.show();
+    }
+
+    /**
+     * Get cache status text
+     */
+    function getCacheStatusText() {
+        try {
+            const cacheData = localStorage.getItem(mapDataService.cacheKey);
+            if (!cacheData) return 'No cache data available';
+            
+            const parsed = JSON.parse(cacheData);
+            if (!parsed.timestamp) return 'Cache data exists but no timestamp';
+            
+            const cacheDate = new Date(parsed.timestamp);
+            const ageMs = Date.now() - parsed.timestamp;
+            const ageMinutes = Math.floor(ageMs / 60000);
+            
+            if (ageMinutes < 60) {
+                return `Cache from ${cacheDate.toLocaleString()} (${ageMinutes} minutes ago)`;
+            } else {
+                const ageHours = Math.floor(ageMinutes / 60);
+                if (ageHours < 24) {
+                    return `Cache from ${cacheDate.toLocaleString()} (${ageHours} hours ago)`;
+                } else {
+                    const ageDays = Math.floor(ageHours / 24);
+                    return `Cache from ${cacheDate.toLocaleString()} (${ageDays} days ago)`;
+                }
+            }
+        } catch (e) {
+            console.error('Error getting cache status:', e);
+            return 'Error reading cache status';
+        }
+    }
+
+    /**
+     * Handle manual refresh of map data
+     */
+    async function handleRefreshMapData() {
+        if (!confirm("This will refresh map data from the API. Continue?")) {
+            return;
+        }
+        
+        setStatus('Refreshing map data from API...', 'info');
+        showProgress();
+        
+        try {
+            await loadMapData({ forceRefresh: true });
+            
+            // Update the map if it exists
+            if (map) {
+                renderAllMapData();
+                if (currentResults) {
+                    updateMap(currentResults);
+                }
+            }
+            
+            setStatus('Map data refreshed successfully', 'success');
+        } catch (error) {
+            setStatus(`Error refreshing map data: ${error.message}`, 'danger');
+        } finally {
+            hideProgress();
+        }
+    }
+
+    // Part 5: Load API Settings on Startup (Function Definition)
+    /**
+     * Load API settings from localStorage
+     */
+    function loadApiSettings() {
+        try {
+            const savedSettings = JSON.parse(localStorage.getItem('apiSettings') || '{}');
+            if (savedSettings.useApi && savedSettings.baseUrl) {
+                mapDataService.baseUrl = savedSettings.baseUrl;
+                console.log('Using API for GIS data:', savedSettings.baseUrl);
+            }
+        } catch (e) {
+            console.error('Error loading saved API settings:', e);
+        }
+    }
+
 });
