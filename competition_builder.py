@@ -261,8 +261,33 @@ def create_competitions_from_df(
     
     # Ensure timestamps are in datetime format
     df = df.copy()
-    if not pd.api.types.is_datetime64_any_dtype(df["Timestamp"]):
-        df["Timestamp"] = pd.to_datetime(df["Timestamp"])
+    
+    # Check if we have timezone-aware datetime objects
+    timestamp_col = df["Timestamp"]
+    
+    if pd.api.types.is_datetime64_any_dtype(timestamp_col):
+        # Already datetime64 dtype - check for timezone
+        if hasattr(timestamp_col.dtype, 'tz') and timestamp_col.dtype.tz is not None:
+            # Convert timezone-aware datetime64 to naive
+            df["Timestamp"] = timestamp_col.dt.tz_localize(None)
+    elif timestamp_col.dtype == 'object':
+        # Object dtype - could be timezone-aware datetime objects
+        sample_values = timestamp_col.dropna().head(5)
+        if len(sample_values) > 0:
+            first_value = sample_values.iloc[0]
+            # Check if it's already a datetime object with timezone info
+            if hasattr(first_value, 'tzinfo') and first_value.tzinfo is not None:
+                # These are timezone-aware datetime objects - convert them safely
+                df["Timestamp"] = pd.to_datetime(timestamp_col, utc=True).dt.tz_localize(None)
+            elif isinstance(first_value, str):
+                # String timestamps - let pandas parse them
+                df["Timestamp"] = pd.to_datetime(timestamp_col)
+            else:
+                # Some other format - try basic conversion
+                df["Timestamp"] = pd.to_datetime(timestamp_col)
+    else:
+        # Non-datetime, non-object dtype - convert normally
+        df["Timestamp"] = pd.to_datetime(timestamp_col)
     
     # Sort by timestamp
     df = df.sort_values("Timestamp")
