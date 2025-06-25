@@ -6,42 +6,34 @@ according to the flexibility competition schema, using the same logic as energy_
 for service window identification.
 """
 
-import pandas as pd
-import json
-import numpy as np
-from pathlib import Path
 import argparse
+import json
 import logging
-import sys
 import os
 import re
+import sys
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Union, Tuple
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Union
 
-# Import original firm capacity modules
-from src.utils import load_config, ensure_dir, load_site_specific_targets
-from src.calculations import (
-    energy_above_capacity,
-    energy_peak_based,
-    invert_capacity,
-)
-from src.plotting import plot_E_curve
+import numpy as np
+import pandas as pd
 
 # Import competition modules (new additions)
-from competition_builder import (
-    create_competitions_from_df,
-    save_competitions_to_json,
-    validate_competitions_with_schema
-)
-from competition_dates import update_dates_in_dataframe
+from competition_builder import (create_competitions_from_df,
+                                 save_competitions_to_json,
+                                 validate_competitions_with_schema)
 from competition_config import ConfigMode
-
+from competition_dates import update_dates_in_dataframe
+from src.calculations import (energy_above_capacity, energy_peak_based,
+                              invert_capacity)
 # Import parquet processing module
-from src.parquet_processor import (
-    process_network_groups_in_parquet, 
-    get_unique_network_groups,
-    save_summary_results
-)
+from src.parquet_processor import (get_unique_network_groups,
+                                   process_network_groups_in_parquet,
+                                   save_summary_results)
+from src.plotting import plot_E_curve
+# Import original firm capacity modules
+from src.utils import ensure_dir, load_config, load_site_specific_targets
 
 # Configure logging
 logging.basicConfig(
@@ -55,10 +47,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Utility functions for service window MWh extraction
-def extract_window_duration(start_time, end_time):
+def extract_window_duration(start_time: str, end_time: str) -> float:
     """
     Calculate window duration in hours from start and end times (HH:MM format).
     Handles overnight windows.
+    
+    Args:
+        start_time: Start time in HH:MM format
+        end_time: End time in HH:MM format
     
     Returns:
         float: Window duration in hours, guaranteed to be positive
@@ -82,15 +78,23 @@ def extract_window_duration(start_time, end_time):
     
     return duration_hours
 
-def count_service_days(service_days):
+def count_service_days(service_days: List[str]) -> int:
     """Count the number of days in the service_days list."""
     return len(service_days)
 
-def estimate_mwh_from_capacity(capacity_mw, duration_hours, days_count):
+def estimate_mwh_from_capacity(capacity_mw: float, duration_hours: float, days_count: int) -> float:
     """
     Estimate MWh based on capacity, duration, and number of days.
     This is a simplified calculation - actual MWh depends on the specific
     demand profile and firm capacity algorithm.
+    
+    Args:
+        capacity_mw: Capacity in MW
+        duration_hours: Duration in hours
+        days_count: Number of service days
+    
+    Returns:
+        float: Estimated energy in MWh
     """
     # Simple assumption: energy is capacity × duration × some utilization factor
     # In reality, this is an approximation since the energy calculation
@@ -98,7 +102,7 @@ def estimate_mwh_from_capacity(capacity_mw, duration_hours, days_count):
     utilization_factor = 0.8  # Assume 80% utilization as an approximation
     return capacity_mw * duration_hours * utilization_factor
 
-def extract_month_from_period(period_name):
+def extract_month_from_period(period_name: str) -> str:
     """Extract month from period name (e.g., 'January' from 'January 1 (Monday)')."""
     # Look for a month name at the beginning of the period name
     months = [
@@ -112,7 +116,8 @@ def extract_month_from_period(period_name):
     
     return "Unknown"
 
-def generate_service_window_mwh(competitions, output_path, total_energy_mwh=None):
+def generate_service_window_mwh(competitions: List[Dict], output_path: str, 
+                                total_energy_mwh: Optional[float] = None) -> pd.DataFrame:
     """
     Generate a CSV file with MWh data from service windows.
     
@@ -254,7 +259,7 @@ def generate_service_window_mwh(competitions, output_path, total_energy_mwh=None
             logger.info(f"Total service window MWh: {total_mwh:.2f}, Target MWh: {total_energy_mwh:.2f}")
             logger.info(f"Difference: {mwh_diff:.2f} MWh ({mwh_pct_diff:.2f}%)")
     else:
-        logger.warning(f"No service windows found for MWh data generation")
+        logger.warning("No service windows found for MWh data generation")
     
     return df
 
@@ -267,7 +272,7 @@ def process_substation_with_competitions(
     parquet_path: Optional[str] = None,
     parquet_df: Optional[pd.DataFrame] = None,
     site_targets: Optional[Dict[str, float]] = None
-):
+) -> dict:
     """
     Process a substation with firm capacity analysis and optionally generate competitions.
     
@@ -280,6 +285,9 @@ def process_substation_with_competitions(
         parquet_path: Optional path to parquet file (for logging)
         parquet_df: Optional pre-filtered dataframe from parquet
         site_targets: Optional dictionary of site-specific MWh targets
+    
+    Returns:
+        dict: Processing results and statistics
     """
     name = sub["name"]
     out_base = Path(cfg["output"]["base_dir"]) / name
@@ -345,10 +353,10 @@ def process_substation_with_competitions(
     tol_frac = cfg["firm_capacity"]["tolerance"]
     
     try:
-        tol_C = tol_frac * float(demand.max()) # Use float() just in case
+        tol_C = tol_frac * float(demand.max())  # Use float() just in case
     except ValueError:
         logger.warning(f"Warning: Could not determine max demand for {name}, using default tolerance.")
-        tol_C = 1e-3 # Default absolute tolerance if max fails
+        tol_C = 1e-3  # Default absolute tolerance if max fails
 
     # Calculate firm capacity using different methods
     C_plain = invert_capacity(energy_above_capacity, demand, T, tol=tol_C)
@@ -358,13 +366,13 @@ def process_substation_with_competitions(
     plot_E_curve(
         demand, energy_above_capacity,
         C_plain, T,
-        out_base/"E_curve_plain.png",
+        out_base / "E_curve_plain.png",
         f"{name}: Plain E(C)"
     )
     plot_E_curve(
         demand, energy_peak_based,
         C_peak, T,
-        out_base/"E_curve_peak.png",
+        out_base / "E_curve_peak.png",
         f"{name}: Peak‐based E(C)"
     )
 
@@ -384,10 +392,10 @@ def process_substation_with_competitions(
     }
     
     # Write results
-    pd.DataFrame([stats]).to_csv(out_base/"firm_capacity_results.csv", index=False)
+    pd.DataFrame([stats]).to_csv(out_base / "firm_capacity_results.csv", index=False)
     
     # Write metadata
-    with open(out_base/"metadata.json","w") as f:
+    with open(out_base / "metadata.json", "w") as f:
         json.dump(stats, f, indent=2)
     
     # Generate competitions if requested
@@ -438,7 +446,159 @@ def process_substation_with_competitions(
     
     return stats
 
-def main():
+def create_service_windows_with_known_capacity(
+    cfg: dict,
+    sub: dict,
+    firm_capacity: float,
+    generate_competitions: bool = True,
+    target_year: Optional[int] = None,
+    schema_path: Optional[str] = None,
+    parquet_path: Optional[str] = None,
+    parquet_df: Optional[pd.DataFrame] = None
+) -> dict:
+    """
+    Create service windows using a pre-calculated firm capacity value.
+    
+    Args:
+        cfg: Configuration dictionary
+        sub: Substation configuration dictionary
+        firm_capacity: Pre-calculated firm capacity in MW
+        generate_competitions: Whether to generate competitions
+        target_year: Optional year to use for dates in competition generation
+        schema_path: Optional path to competition schema for validation
+        parquet_path: Optional path to parquet file (for logging)
+        parquet_df: Optional pre-filtered dataframe from parquet
+    
+    Returns:
+        dict: Processing results and statistics
+    """
+    name = sub["name"]
+    out_base = Path(cfg["output"]["base_dir"]) / name
+    ensure_dir(out_base)
+
+    # Determine if we're using pre-filtered parquet data
+    if parquet_df is not None:
+        logger.info(f"Using pre-filtered parquet data for {name}")
+        df = parquet_df
+    else:
+        # Check for data source in substation config
+        demand_source = sub.get("demand_source", "csv")
+        
+        if demand_source == "parquet" and parquet_path is None:
+            logger.error(f"Error: Demand source is 'parquet' but no parquet data provided for {name}")
+            raise ValueError(f"No parquet data provided for {name}")
+        
+        # Original CSV loading logic
+        if cfg["input"]["in_substation_folder"]:
+            demand_path = out_base / sub["demand_file"]
+        else:
+            try:
+                # Try to get demand file from substation config
+                demand_file = sub.get("demand_file", f"{name}.csv")
+                demand_path = Path(cfg["input"]["demand_base_dir"]) / demand_file
+            except KeyError:
+                demand_path = Path(cfg["input"]["demand_base_dir"]) / f"{name}.csv"
+        
+        # Load demand data
+        logger.info(f"Loading CSV demand data from {demand_path}")
+        df = pd.read_csv(demand_path, parse_dates=["Timestamp"])
+    
+    # Common processing for both CSV and parquet data
+    df.sort_values("Timestamp", inplace=True)
+    
+    # Add substation name column if not present
+    if "Substation" not in df.columns:
+        df["Substation"] = name
+    
+    # Determine time step from data
+    if len(df) > 1:
+        time_diff = (df["Timestamp"].iloc[1] - df["Timestamp"].iloc[0]).total_seconds() / 3600  # in hours
+        delta_t = time_diff
+    else:
+        # Default to half-hourly if can't determine
+        delta_t = 0.5
+    
+    # Update dates if target_year is specified
+    if target_year is not None:
+        df = update_dates_in_dataframe(df, target_year=target_year)
+    
+    # Use the provided firm capacity instead of calculating it
+    C_peak = firm_capacity
+    logger.info(f"Using provided firm capacity for {name}: {C_peak:.2f} MW")
+    
+    # Calculate demand statistics for comparison
+    demand = df["Demand (MW)"].values
+    
+    # Calculate the actual energy for verification using the provided capacity
+    energy_peak = energy_peak_based(demand, C_peak)
+
+    # Summary stats
+    stats = {
+        "substation": name,
+        "C_peak_MW": C_peak,
+        "mean_demand_MW": float(demand.mean()),
+        "max_demand_MW": float(demand.max()),
+        "total_energy_MWh": float((demand * delta_t).sum()),
+        "energy_above_capacity_MWh": float(energy_peak),
+        "provided_firm_capacity": True  # Flag to indicate this was provided, not calculated
+    }
+    
+    # Write results
+    pd.DataFrame([stats]).to_csv(out_base / "firm_capacity_results.csv", index=False)
+    
+    # Write metadata
+    with open(out_base / "metadata.json", "w") as f:
+        json.dump(stats, f, indent=2)
+    
+    # Generate competitions if requested
+    if generate_competitions:
+        logger.info(f"Generating competitions for {name} with provided firm capacity {C_peak:.2f} MW")
+        
+        # Get competition settings from config
+        comp_cfg = cfg.get("competitions", {})
+        procurement_window_size_minutes = comp_cfg.get("procurement_window_size_minutes", 30)
+        daily_service_periods = comp_cfg.get("daily_service_periods", False)
+        financial_year = comp_cfg.get("financial_year", None)
+        
+        # Generate competitions using the provided firm capacity
+        competitions = create_competitions_from_df(
+            df,
+            C_peak,  # Use the provided firm capacity
+            schema_path=schema_path,
+            procurement_window_size_minutes=procurement_window_size_minutes,
+            daily_service_periods=daily_service_periods,
+            financial_year=financial_year,
+            delta_t=delta_t  # Pass the time step determined from data
+        )
+        
+        if competitions:
+            # Save competitions to JSON
+            competitions_path = out_base / "competitions.json"
+            save_competitions_to_json(competitions, str(competitions_path))
+            logger.info(f"Saved {len(competitions)} competitions to {competitions_path}")
+            
+            # Generate service window MWh data
+            mwh_path = out_base / "service_window_mwh.csv"
+            generate_service_window_mwh(competitions, mwh_path, stats.get("energy_above_capacity_MWh"))
+            
+            # Validate competitions if schema path is provided
+            if schema_path:
+                validation_errors = validate_competitions_with_schema(competitions, schema_path)
+                
+                if validation_errors:
+                    # Save validation errors to JSON
+                    error_path = out_base / "validation_errors.json"
+                    with open(error_path, "w") as f:
+                        json.dump(validation_errors, f, indent=2)
+                    logger.warning(f"Found {len(validation_errors)} validation errors. See {error_path} for details.")
+                else:
+                    logger.info("All competitions validated successfully against schema.")
+        else:
+            logger.warning(f"No competitions generated for {name}")
+    
+    return stats
+
+def main() -> None:
     """Main function"""
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Firm capacity analysis with competition generation")
@@ -455,6 +615,10 @@ def main():
     parser.add_argument('--filter', type=str, help='Filter network groups (comma-separated)')
     parser.add_argument('--workers', type=int, default=4, help='Number of parallel workers for parquet processing')
     parser.add_argument('--skip-existing', action='store_true', help='Skip network groups with existing results')
+    
+    # Add firm capacity arguments
+    parser.add_argument('--firm-capacity', type=float, help='Use provided firm capacity (MW) instead of calculating it')
+    parser.add_argument('--firm-capacities-file', type=str, help='Path to CSV file with site-specific firm capacities')
     
     args = parser.parse_args()
     
@@ -487,6 +651,21 @@ def main():
         except Exception as e:
             logger.error(f"Error loading targets file: {e}")
             logger.warning("Will use default target from config instead")
+    
+    # Load site-specific firm capacities if provided
+    site_firm_capacities = None
+    if args.firm_capacities_file:
+        capacities_path = Path(args.firm_capacities_file)
+        if not capacities_path.is_absolute():
+            capacities_path = Path(__file__).resolve().parent / args.firm_capacities_file
+        
+        try:
+            df_capacities = pd.read_csv(capacities_path)
+            site_firm_capacities = dict(zip(df_capacities['Site'], df_capacities['Firm_Capacity_MW']))
+            logger.info(f"Loaded {len(site_firm_capacities)} site-specific firm capacities from {capacities_path}")
+        except Exception as e:
+            logger.error(f"Error loading firm capacities file: {e}")
+            logger.warning("Will calculate firm capacities instead")
     
     # Check if we're using parquet file
     if args.parquet:
@@ -521,23 +700,48 @@ def main():
         results = []
         for sub in cfg["substations"]:
             try:
-                result = process_substation_with_competitions(
-                    cfg, 
-                    sub, 
-                    generate_competitions=args.competitions,
-                    target_year=args.year,
-                    schema_path=args.schema,
-                    site_targets=site_targets  # Pass site-specific targets
-                )
+                sub_name = sub['name']
+                
+                # Determine which firm capacity to use
+                if args.firm_capacity is not None:
+                    # Use single provided firm capacity for all sites
+                    firm_capacity = args.firm_capacity
+                elif site_firm_capacities and sub_name in site_firm_capacities:
+                    # Use site-specific firm capacity
+                    firm_capacity = site_firm_capacities[sub_name]
+                else:
+                    firm_capacity = None
+                
+                if firm_capacity is not None:
+                    # Use the provided firm capacity instead of calculating it
+                    logger.info(f"Using firm capacity {firm_capacity:.2f} MW for {sub_name}")
+                    result = create_service_windows_with_known_capacity(
+                        cfg, 
+                        sub, 
+                        firm_capacity=firm_capacity,
+                        generate_competitions=args.competitions,
+                        target_year=args.year,
+                        schema_path=args.schema
+                    )
+                else:
+                    # Calculate firm capacity as usual
+                    result = process_substation_with_competitions(
+                        cfg, 
+                        sub, 
+                        generate_competitions=args.competitions,
+                        target_year=args.year,
+                        schema_path=args.schema,
+                        site_targets=site_targets  # Pass site-specific targets
+                    )
                 results.append(result)
                 logger.info(f"Successfully processed {sub['name']}")
             except FileNotFoundError:
                 if cfg["input"]["in_substation_folder"]:
                     demand_path = Path(cfg["output"]["base_dir"]) / sub["name"] / sub["demand_file"]
                 else:
-                    demand_path = Path(cfg["input"]["demand_base_dir"]) / f"{sub['demand_file']}"
+                    demand_path = Path(cfg["input"]["demand_base_dir"]) / sub["name"]
                 logger.error(f"Error: Demand file not found for {sub['name']}. Expected at: {demand_path}")
-                logger.error(f"Please check config.yaml and ensure data files exist.")
+                logger.error("Please check config.yaml and ensure data files exist.")
             except Exception as e:
                 logger.error(f"Error processing {sub['name']}: {e}", exc_info=True)
         
