@@ -454,7 +454,8 @@ def create_service_windows_with_known_capacity(
     target_year: Optional[int] = None,
     schema_path: Optional[str] = None,
     parquet_path: Optional[str] = None,
-    parquet_df: Optional[pd.DataFrame] = None
+    parquet_df: Optional[pd.DataFrame] = None,
+    site_targets: Optional[Dict[str, float]] = None
 ) -> dict:
     """
     Create service windows using a pre-calculated firm capacity value.
@@ -468,6 +469,7 @@ def create_service_windows_with_known_capacity(
         schema_path: Optional path to competition schema for validation
         parquet_path: Optional path to parquet file (for logging)
         parquet_df: Optional pre-filtered dataframe from parquet
+        site_targets: Optional dictionary of site-specific MWh targets (not used with known capacities)
     
     Returns:
         dict: Processing results and statistics
@@ -684,11 +686,38 @@ def main() -> None:
         if args.filter:
             filter_groups = [g.strip() for g in args.filter.split(',')]
         
+        # Determine which processing function to use based on firm capacity arguments
+        if args.firm_capacity is not None or args.firm_capacities_file is not None:
+            # Use known firm capacity processing function
+            def parquet_process_function(cfg, sub, **kwargs):
+                # Determine which firm capacity to use for this substation
+                sub_name = sub['name'] if isinstance(sub, dict) else sub
+                
+                if args.firm_capacity is not None:
+                    # Use single provided firm capacity for all sites
+                    firm_capacity = args.firm_capacity
+                elif site_firm_capacities and sub_name in site_firm_capacities:
+                    # Use site-specific firm capacity
+                    firm_capacity = site_firm_capacities[sub_name]
+                else:
+                    # No firm capacity provided for this site - raise error
+                    raise ValueError(f"No firm capacity provided for {sub_name}")
+                
+                return create_service_windows_with_known_capacity(
+                    cfg, 
+                    sub, 
+                    firm_capacity=firm_capacity,
+                    **kwargs
+                )
+        else:
+            # Use original processing function that calculates firm capacity
+            parquet_process_function = process_substation_with_competitions
+        
         # Process network groups from parquet file
         results = process_network_groups_in_parquet(
             args.parquet,
             cfg,
-            process_substation_with_competitions,
+            parquet_process_function,
             network_groups=filter_groups,
             max_workers=args.workers,
             skip_existing=args.skip_existing,
@@ -729,7 +758,8 @@ def main() -> None:
                         firm_capacity=firm_capacity,
                         generate_competitions=args.competitions,
                         target_year=args.year,
-                        schema_path=args.schema
+                        schema_path=args.schema,
+                        site_targets=site_targets  # Pass site-specific targets
                     )
                 else:
                     # Calculate firm capacity as usual

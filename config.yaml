@@ -11,8 +11,4 @@ output:
   base_dir: "./output"
 
 firm_capacity:
-  tolerance: 0.10      # ±10%
-
-substations:
-  - name: Monktonhall
-    demand_file: "Monktonhall.csv"       # relative if in_substation_folder=true
+  tolerance: 0.10      # ±10%      # relative if in_substation_folder=true
