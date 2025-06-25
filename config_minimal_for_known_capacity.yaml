@@ -1,0 +1,23 @@
+# Minimal configuration for use with known firm capacities
+# This config doesn't require target_mwh since we're providing firm capacity directly
+
+# Input/Output settings
+input:
+  demand_base_dir: "data"
+  in_substation_folder: false
+
+output:
+  base_dir: "output"
+
+# Substations list
+substations:
+  - name: "Example_Site1"
+    demand_file: "Example_Site1.csv"
+  - name: "Example_Site2" 
+    demand_file: "Example_Site2.csv"
+
+# Competition settings (optional)
+competitions:
+  procurement_window_size_minutes: 30
+  daily_service_periods: false
+  financial_year: null 

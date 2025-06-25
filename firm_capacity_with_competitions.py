@@ -638,6 +638,14 @@ def main() -> None:
             "financial_year": None
         }
     
+    # Add default firm_capacity section if not present and using known capacities
+    # This prevents config errors when we don't need to calculate firm capacity
+    if "firm_capacity" not in cfg and (args.firm_capacity is not None or args.firm_capacities_file is not None):
+        cfg["firm_capacity"] = {
+            "target_mwh": 0,  # Not used when providing known capacity
+            "tolerance": 0.01  # Default tolerance value
+        }
+    
     # Load site-specific targets if provided
     site_targets = None
     if args.targets:
